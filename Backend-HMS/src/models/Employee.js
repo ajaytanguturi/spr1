@@ -39,7 +39,7 @@ const employeeSchema = new mongoose.Schema({
         default: "ACTIVE"
     },
     joiningDate: { type: Date, required: true },
-    medicalRegistrationNumber: { type: String },
+    medicalRegistrationNumber: { type: String, unique: true },
     specialization: [{ type: String }],
     qualification: [{ type: String, required: true }],
     consultationFee: { type: Number, default: 0 },

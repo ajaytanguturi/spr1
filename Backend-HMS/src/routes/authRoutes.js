@@ -10,6 +10,6 @@ const auth = require("../middleware/authMiddleware");
 router.post("/signup", signupValidation, validate, signup);
 router.post("/login", loginValidation, validate, login);
 router.get("/me", auth, me);
-
 router.get("/verify-email/:token", verifyEmail);
+
 module.exports = router;

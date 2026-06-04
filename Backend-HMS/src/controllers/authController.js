@@ -95,7 +95,12 @@ exports.login = async (req, res) => {
         if (!isMatch) {
             return res.status(401).json({ message: "Invalid email or password" });
         }
-
+        if (!user.isActive) {
+            return res.status(403).json({
+                success: false,
+                message: "Your account has not been verified. Please verify your email",
+            });
+        }
         user.last_login = new Date();
         await user.save();
         const token = jwt.sign(

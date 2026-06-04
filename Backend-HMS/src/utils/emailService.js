@@ -1,8 +1,7 @@
 const apiInstance = require("../config/brevo");
 const Brevo = require("sib-api-v3-sdk");
 
-const sendEmail = async ({ to, subject, htmlContent,
-}) => {
+const sendEmail = async ({ to, subject, htmlContent }) => {
     try {
         await apiInstance.sendTransacEmail({
             sender: { name: process.env.EMAIL_FROM_NAME, email: process.env.EMAIL_FROM },
