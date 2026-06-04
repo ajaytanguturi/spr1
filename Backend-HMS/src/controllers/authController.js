@@ -125,11 +125,6 @@ exports.login = async (req, res) => {
     }
 };
 
-exports.logout = (req, res) => {
-    res.status(200).json({ message: "Logged out successfully" });
-};
-
-
 exports.me = async (req, res) => {
     try {
         const user = await User.findOne({ employeeId: req.user.employeeId }).select("-passwordHash -__v");
@@ -146,7 +141,6 @@ exports.me = async (req, res) => {
                 email: user.email,
                 role: user.role,
                 lastLoginAt: user.lastLoginAt,
-
             },
             profile
         })
@@ -160,28 +154,22 @@ exports.me = async (req, res) => {
 exports.verifyEmail = async (req, res) => {
     try {
         const { token } = req.params;
-
         const user = await User.findOne({
             verificationToken: token,
             verificationTokenExpiry: {
                 $gt: new Date()
             }
         });
-
         if (!user) {
             return res.status(400).json({
                 success: false,
                 message: "Invalid or expired token"
             });
         }
-
         user.isActive = true;
-
         user.verificationToken = null;
         user.verificationTokenExpiry = null;
-
         await user.save();
-
         return res.status(200).json({
             success: true,
             message: "Email verified successfully"
