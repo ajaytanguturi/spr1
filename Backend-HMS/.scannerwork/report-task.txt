@@ -1,6 +1,0 @@
-projectKey=backend-hms
-serverUrl=http://localhost:9000
-serverVersion=26.1.0.118079
-dashboardUrl=http://localhost:9000/dashboard?id=backend-hms
-ceTaskId=cec8f9bd-ac2b-40f3-9b25-c915b1b1c21b
-ceTaskUrl=http://localhost:9000/api/ce/task?id=cec8f9bd-ac2b-40f3-9b25-c915b1b1c21b
