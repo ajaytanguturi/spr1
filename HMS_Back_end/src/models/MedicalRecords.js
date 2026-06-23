@@ -8,7 +8,7 @@ const medicalRecordSchema = new mongoose.Schema({
     },
     appointmentId: {
         type: String,
-        required: true,
+        required: false,
         ref: "Appointments"
     },
     patientId: {
@@ -22,7 +22,7 @@ const medicalRecordSchema = new mongoose.Schema({
         ref: "Employees"
     },
     symptoms: {
-        type: String,
+        type: [String],
         required: true
     },
     diagnosis: {
@@ -30,24 +30,34 @@ const medicalRecordSchema = new mongoose.Schema({
         required: true
     },
     prescriptionItems: [{
-        name: {type: String, required: true},
-        dosage: {type: String, required: true},
-        duration: {type: String, required: true}
+        name: { type: String, required: true },
+        dosage: { type: String, required: true },
+        duration: { type: String, required: true }
     }],
     notes: {
         type: String
+    },
+    createdByEmployeeId: {
+        type: String,
+        required: true,
+        ref: "Employee"
+    },
+    updatedByEmployeeId: {
+        type: String,
+        ref: "Employee"
     }
-}, {timeStamps: { createdAt: "created_at" }}
-);
+}, {
+    timestamps: { createdAt: "created_at", updatedAt: "updated_at" }
+});
 
 medicalRecordSchema.pre('save', async function () {
     if (this.isNew) {
-            const counter = await Counter.findOneAndUpdate(
-                { name: 'medicalRecord' },
-                { $inc: { seq: 1 } }, 
-                { new: true, upsert: true } 
-            );
-            this.medicalRecordId = `MEDREC-${String(counter.seq).padStart(6, '0')}`; 
+        const counter = await Counter.findOneAndUpdate(
+            { name: 'medicalRecord' },
+            { $inc: { seq: 1 } },
+            { new: true, upsert: true }
+        );
+        this.medicalRecordId = `MEDREC-${String(counter.seq).padStart(6, '0')}`;
     }
 });
 

@@ -4,7 +4,6 @@ import { designationGuard } from './core/guards/role.guard';
 import { mustChangePasswordGuard } from './core/guards/must-change-password.guard';
 import { unsavedChangesGuard } from './core/guards/unsaved-changes.guard';
 
-// Application routes (public, gated change-password, and the authenticated dashboard tree)
 export const routes: Routes = [
   // Public routes
   {
@@ -56,7 +55,7 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'overview' },
 
-      // Available to every authenticated user (defaults rendered by sidebar)
+      // Available to every authenticated user
       {
         path: 'overview',
         loadComponent: () =>
@@ -76,7 +75,7 @@ export const routes: Routes = [
       // Employees: OWNER + ADMIN (superusers always pass)
       {
         path: 'employees',
-        canActivate: [designationGuard([])], // empty list → only superusers
+        canActivate: [designationGuard([])],
         loadComponent: () =>
           import('./features/dashboard/employees/employees').then(
             (m) => m.EmployeesListComponent,
@@ -113,7 +112,7 @@ export const routes: Routes = [
           ),
       },
 
-      // Admins management: OWNER only (uses the dedicated ownerOnlyGuard below)
+      // Admins management: OWNER only
       {
         path: 'admins',
         canActivate: [ownerOnlyGuard()],
@@ -133,7 +132,7 @@ export const routes: Routes = [
           ).then((m) => m.CreateEmployeeComponent),
       },
 
-      // Patients: OWNER + ADMIN + RECEPTIONIST
+      // Patients list: OWNER + ADMIN + RECEPTIONIST
       {
         path: 'patients',
         canActivate: [designationGuard(['RECEPTIONIST'])],
@@ -152,8 +151,9 @@ export const routes: Routes = [
           ),
       },
       {
+        // DOCTOR added so they can access medical records via patient detail
         path: 'patients/:UHID',
-        canActivate: [designationGuard(['RECEPTIONIST'])],
+        canActivate: [designationGuard(['RECEPTIONIST', 'DOCTOR'])],
         canDeactivate: [unsavedChangesGuard],
         loadComponent: () =>
           import('./features/dashboard/patient-detail/patient-detail').then(
@@ -161,7 +161,7 @@ export const routes: Routes = [
           ),
       },
 
-      // Appointments: OWNER + ADMIN + RECEPTIONIST + DOCTOR (doctors auto-scoped to their own)
+      // Appointments: OWNER + ADMIN + RECEPTIONIST + DOCTOR
       {
         path: 'appointments',
         canActivate: [designationGuard(['RECEPTIONIST', 'DOCTOR'])],
@@ -223,7 +223,6 @@ function ownerOnlyGuard(): CanActivateFn {
       return true;
     }
 
-    // Authenticated but not OWNER → bounce to overview
     return router.createUrlTree(['/dashboard/overview']);
   };
 }

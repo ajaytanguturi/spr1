@@ -2,12 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import {
-  CreatePatientPayload,
-  PatientResponse,
-  PatientSearchResponse,
-  PatientsResponse,
-} from '../models/patient.model';
+import { CreatePatientPayload, PatientResponse, PatientSearchResponse, PatientsResponse, } from '../models/patient.model';
 
 export interface PatientFilters {
   status?: string;

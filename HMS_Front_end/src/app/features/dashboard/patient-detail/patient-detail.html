@@ -1,250 +1,500 @@
 <app-dashboard-layout pageTitle="Patient Details">
   <div class="page">
     @if (loading()) {
-      <div class="loading-box">Loading patient…</div>
+    <div class="loading-box">Loading patient…</div>
     } @else if (patient(); as p) {
-      <!-- View mode -->
-      @if (!editing()) {
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <h3 class="card-title">{{ p.name }}</h3>
-              <p class="card-sub">
-                {{ p.UHID }} ·
-                <span class="status status--{{ p.status.toLowerCase() }}">
-                  {{ p.status }}
-                </span>
-              </p>
-            </div>
-            <button class="btn btn-primary" (click)="startEdit()">Edit</button>
+
+    <!-- ── Tabs ───────────────────────────────────────────────────────── -->
+    <div class="tabs">
+      <button type="button" class="tab-btn" [class.active]="activeTab() === 'info'" (click)="activeTab.set('info')">
+        Patient Info
+      </button>
+      <button type="button" class="tab-btn" [class.active]="activeTab() === 'records'" (click)="switchToRecords()">
+        Medical Records
+        <span class="tab-count">{{ medicalRecords().length }}</span>
+      </button>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+           TAB 1 — PATIENT INFO (existing view / edit)
+      ══════════════════════════════════════════════════════════════════════ -->
+    @if (activeTab() === 'info') {
+    @if (isDoctor()) {
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">{{ p.name }}</h3>
+          <p class="card-sub">
+            {{ p.UHID }} ·
+            <span class="status status--{{ p.status.toLowerCase() }}">
+              {{ p.status }}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <h4 class="section-title">Patient Information</h4>
+        <div class="detail-grid">
+          <div class="detail">
+            <span class="detail-label">Name</span>
+            <span class="detail-value">{{ p.name }}</span>
           </div>
-
-          <div class="card-body">
-            <h4 class="section-title">Personal Information</h4>
-            <div class="detail-grid">
-              <div class="detail">
-                <span class="detail-label">Email</span>
-                <span class="detail-value">{{ p.email }}</span>
-              </div>
-              <div class="detail">
-                <span class="detail-label">Phone</span>
-                <span class="detail-value">{{ p.phone }}</span>
-              </div>
-              <div class="detail">
-                <span class="detail-label">Gender</span>
-                <span class="detail-value">{{ p.gender }}</span>
-              </div>
-              <div class="detail">
-                <span class="detail-label">Date of Birth</span>
-                <span class="detail-value">{{ p.dob | date: 'mediumDate' }}</span>
-              </div>
-            </div>
-
-            <h4 class="section-title">Address</h4>
-            <div class="detail-grid">
-              <div class="detail">
-                <span class="detail-label">House Name</span>
-                <span class="detail-value">{{ p.address.houseName }}</span>
-              </div>
-              <div class="detail">
-                <span class="detail-label">House Number</span>
-                <span class="detail-value">{{ p.address.houseNumber }}</span>
-              </div>
-              <div class="detail">
-                <span class="detail-label">City</span>
-                <span class="detail-value">{{ p.address.city }}</span>
-              </div>
-              <div class="detail">
-                <span class="detail-label">Post Code</span>
-                <span class="detail-value">{{ p.address.postCode }}</span>
-              </div>
-            </div>
-
-            <h4 class="section-title">Emergency Contact</h4>
-            <div class="detail-grid">
-              <div class="detail">
-                <span class="detail-label">Name</span>
-                <span class="detail-value">{{ p.emergencyContact.contactName }}</span>
-              </div>
-              <div class="detail">
-                <span class="detail-label">Relationship</span>
-                <span class="detail-value">{{ p.emergencyContact.relationship }}</span>
-              </div>
-              <div class="detail">
-                <span class="detail-label">Contact Number</span>
-                <span class="detail-value">{{ p.emergencyContact.contactNumber }}</span>
-              </div>
-            </div>
+          <div class="detail">
+            <span class="detail-label">Gender</span>
+            <span class="detail-value">{{ p.gender }}</span>
+          </div>
+          <div class="detail">
+            <span class="detail-label">Date of Birth</span>
+            <span class="detail-value">{{ p.dob | date: 'mediumDate' }}</span>
           </div>
         </div>
-      }
+      </div>
+    </div>
+    }
+    @if (!isDoctor()) {
+    <!-- View mode -->
+    @if (!editing()) {
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">{{ p.name }}</h3>
+          <p class="card-sub">
+            {{ p.UHID }} ·
+            <span class="status status--{{ p.status.toLowerCase() }}">
+              {{ p.status }}
+            </span>
+          </p>
+        </div>
+        <!-- Receptionists and admins can edit; doctors view only -->
+        @if (canEditPatient()) {
+        <button class="btn btn-primary" (click)="startEdit()">Edit</button>
+        }
+      </div>
 
-      <!-- Edit mode -->
-      @if (editing()) {
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <h3 class="card-title">Edit Patient</h3>
-              <p class="card-sub">{{ p.UHID }}</p>
-            </div>
+      <div class="card-body">
+        <h4 class="section-title">Personal Information</h4>
+        <div class="detail-grid">
+          <div class="detail">
+            <span class="detail-label">Email</span>
+            <span class="detail-value">{{ p.email }}</span>
+          </div>
+          <div class="detail">
+            <span class="detail-label">Phone</span>
+            <span class="detail-value">{{ p.phone }}</span>
+          </div>
+          <div class="detail">
+            <span class="detail-label">Gender</span>
+            <span class="detail-value">{{ p.gender }}</span>
+          </div>
+          <div class="detail">
+            <span class="detail-label">Date of Birth</span>
+            <span class="detail-value">{{ p.dob | date: 'mediumDate' }}</span>
+          </div>
+        </div>
+
+        <h4 class="section-title">Address</h4>
+        <div class="detail-grid">
+          <div class="detail">
+            <span class="detail-label">House Name</span>
+            <span class="detail-value">{{ p.address.houseName }}</span>
+          </div>
+          <div class="detail">
+            <span class="detail-label">House Number</span>
+            <span class="detail-value">{{ p.address.houseNumber }}</span>
+          </div>
+          <div class="detail">
+            <span class="detail-label">City</span>
+            <span class="detail-value">{{ p.address.city }}</span>
+          </div>
+          <div class="detail">
+            <span class="detail-label">Post Code</span>
+            <span class="detail-value">{{ p.address.postCode }}</span>
+          </div>
+        </div>
+
+        <h4 class="section-title">Emergency Contact</h4>
+        <div class="detail-grid">
+          <div class="detail">
+            <span class="detail-label">Name</span>
+            <span class="detail-value">{{ p.emergencyContact.contactName }}</span>
+          </div>
+          <div class="detail">
+            <span class="detail-label">Relationship</span>
+            <span class="detail-value">{{ p.emergencyContact.relationship }}</span>
+          </div>
+          <div class="detail">
+            <span class="detail-label">Contact Number</span>
+            <span class="detail-value">{{ p.emergencyContact.contactNumber }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    }
+
+    <!-- Edit mode (receptionist / admin only) -->
+    @if (editing()) {
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">Edit Patient</h3>
+          <p class="card-sub">{{ p.UHID }}</p>
+        </div>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="card-body">
+        <h4 class="section-title">Personal Information</h4>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="pd-name">Full Name *</label>
+            <input id="pd-name" type="text" formControlName="name" class="form-input" />
+            @if (form.get('name')?.touched && form.get('name')?.invalid) {
+            @if (form.get('name')?.hasError('name')) {
+            <p class="form-error">Enter a valid name (2–50 letters, spaces, hyphens, apostrophes or periods)</p>
+            } @else {
+            <p class="form-error">Name is required</p>
+            }
+            }
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pd-email">Email *</label>
+            <input id="pd-email" type="email" formControlName="email" class="form-input" />
+            @if (form.get('email')?.touched) {
+            @if (form.get('email')?.hasError('required')) {
+            <p class="form-error">Email is required</p>
+            }
+            @if (form.get('email')?.hasError('email')) {
+            <p class="form-error">Enter a valid email address</p>
+            }
+            }
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pd-phone">Phone *</label>
+            <input id="pd-phone" type="tel" formControlName="phone" class="form-input" />
+            @if (form.get('phone')?.touched) {
+            @if (form.get('phone')?.hasError('required')) {
+            <p class="form-error">Phone is required</p>
+            }
+            @if (form.get('phone')?.hasError('phone')) {
+            <p class="form-error">Enter 10 digits, optionally with a country code</p>
+            }
+            }
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pd-gender">Gender *</label>
+            <select id="pd-gender" formControlName="gender" class="form-select">
+              @for (g of genders; track g) {
+              <option [value]="g">{{ g }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pd-dob">Date of Birth *</label>
+            <input id="pd-dob" type="date" formControlName="dob" class="form-input" [attr.max]="todayIso" />
+            @if (form.get('dob')?.touched) {
+            @if (form.get('dob')?.hasError('required')) {
+            <p class="form-error">Date of birth is required</p>
+            }
+            @if (form.get('dob')?.hasError('futureDate')) {
+            <p class="form-error">Date of birth cannot be a future date</p>
+            }
+            }
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pd-status">Status *</label>
+            <select id="pd-status" formControlName="status" class="form-select">
+              @for (s of statuses; track s) {
+              <option [value]="s">{{ s }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <h4 class="section-title">Address</h4>
+        <div class="form-grid" formGroupName="address">
+          <div class="form-group">
+            <label class="form-label" for="pd-house-name">House Name *</label>
+            <input id="pd-house-name" type="text" formControlName="houseName" class="form-input" />
+            @if (addressCtrl('houseName')?.touched && addressCtrl('houseName')?.invalid) {
+            <p class="form-error">House name is required</p>
+            }
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pd-house-number">House Number *</label>
+            <input id="pd-house-number" type="text" formControlName="houseNumber" class="form-input" />
+            @if (addressCtrl('houseNumber')?.touched && addressCtrl('houseNumber')?.invalid) {
+            <p class="form-error">House number is required</p>
+            }
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pd-city">City *</label>
+            <input id="pd-city" type="text" formControlName="city" class="form-input" />
+            @if (addressCtrl('city')?.touched && addressCtrl('city')?.invalid) {
+            <p class="form-error">City is required</p>
+            }
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pd-post-code">Post Code *</label>
+            <input id="pd-post-code" type="text" formControlName="postCode" class="form-input" />
+            @if (addressCtrl('postCode')?.touched && addressCtrl('postCode')?.invalid) {
+            <p class="form-error">Post code is required</p>
+            }
+          </div>
+        </div>
+
+        <h4 class="section-title">Emergency Contact</h4>
+        <div class="form-grid" formGroupName="emergencyContact">
+          <div class="form-group">
+            <label class="form-label" for="pd-contact-name">Contact Name *</label>
+            <input id="pd-contact-name" type="text" formControlName="contactName" class="form-input" />
+            @if (emergencyCtrl('contactName')?.touched && emergencyCtrl('contactName')?.invalid) {
+            @if (emergencyCtrl('contactName')?.hasError('name')) {
+            <p class="form-error">Enter a valid name</p>
+            } @else {
+            <p class="form-error">Contact name is required</p>
+            }
+            }
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pd-relationship">Relationship *</label>
+            <input id="pd-relationship" type="text" formControlName="relationship" class="form-input" />
+            @if (emergencyCtrl('relationship')?.touched && emergencyCtrl('relationship')?.invalid) {
+            <p class="form-error">Relationship is required</p>
+            }
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pd-contact-number">Contact Number *</label>
+            <input id="pd-contact-number" type="tel" formControlName="contactNumber" class="form-input" />
+            @if (emergencyCtrl('contactNumber')?.touched) {
+            @if (emergencyCtrl('contactNumber')?.hasError('required')) {
+            <p class="form-error">Contact number is required</p>
+            }
+            @if (emergencyCtrl('contactNumber')?.hasError('phone')) {
+            <p class="form-error">Enter 10 digits, optionally with a country code</p>
+            }
+            }
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="cancelEdit()">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="saving()">
+            @if (saving()) { <span>Saving…</span> } @else { <span>Save Changes</span> }
+          </button>
+        </div>
+      </form>
+    </div>
+    }
+    }
+    }
+
+    <!-- ══════════════════════════════════════════════════════════════════
+           TAB 2 — MEDICAL RECORDS
+      ══════════════════════════════════════════════════════════════════════ -->
+    @if (activeTab() === 'records') {
+
+    @if (loadingRecords()) {
+    <div class="loading-box">Loading medical records…</div>
+    } @else {
+
+    <!-- Toolbar: only doctors can create records -->
+    @if (canCreateRecord()) {
+    <div class="records-toolbar">
+      <button type="button" class="btn btn-primary" [disabled]="recordFormMode() !== null" (click)="openCreateRecord()">
+        + New Record
+      </button>
+    </div>
+    }
+
+    <!-- ── Medical Record Form (create / edit) ─────────────────────── -->
+    @if (recordFormMode() !== null) {
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">
+          {{ recordFormMode() === 'create' ? 'New Medical Record' : 'Edit Medical Record' }}
+        </h3>
+      </div>
+
+      <form [formGroup]="recordForm" (ngSubmit)="submitRecord()" class="card-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="mr-visit-date">Visit Date *</label>
+            <input id="mr-visit-date" type="date" formControlName="visitDate" class="form-input"
+              [attr.max]="todayIso" />
+            @if (recordForm.get('visitDate')?.touched && recordForm.get('visitDate')?.invalid) {
+            <p class="form-error">Visit date is required</p>
+            }
           </div>
 
-          <form [formGroup]="form" (ngSubmit)="onSubmit()" class="card-body">
-            <h4 class="section-title">Personal Information</h4>
-            <div class="form-grid">
-              <div class="form-group">
-                <label class="form-label" for="pd-name">Full Name *</label>
-                <input id="pd-name" type="text" formControlName="name" class="form-input" />
-                @if (form.get('name')?.touched && form.get('name')?.invalid) {
-                  @if (form.get('name')?.hasError('name')) {
-                    <p class="form-error">Enter a valid name (2–50 letters, spaces, hyphens, apostrophes or periods)</p>
-                  } @else {
-                    <p class="form-error">Name is required</p>
-                  }
-                }
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="pd-email">Email *</label>
-                <input id="pd-email" type="email" formControlName="email" class="form-input" />
-                @if (form.get('email')?.touched) {
-                  @if (form.get('email')?.hasError('required')) {
-                    <p class="form-error">Email is required</p>
-                  }
-                  @if (form.get('email')?.hasError('email')) {
-                    <p class="form-error">Enter a valid email address</p>
-                  }
-                }
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="pd-phone">Phone *</label>
-                <input id="pd-phone" type="tel" formControlName="phone" class="form-input" />
-                @if (form.get('phone')?.touched) {
-                  @if (form.get('phone')?.hasError('required')) {
-                    <p class="form-error">Phone is required</p>
-                  }
-                  @if (form.get('phone')?.hasError('phone')) {
-                    <p class="form-error">
-                      Enter 10 digits, optionally with a country code (e.g. +91 1234567890 or 1234567890)
-                    </p>
-                  }
-                }
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="pd-gender">Gender *</label>
-                <select id="pd-gender" formControlName="gender" class="form-select">
-                  @for (g of genders; track g) {
-                    <option [value]="g">{{ g }}</option>
-                  }
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="pd-dob">Date of Birth *</label>
-                <input
-                  id="pd-dob"
-                  type="date"
-                  formControlName="dob"
-                  class="form-input"
-                  [attr.max]="todayIso"
-                />
-                @if (form.get('dob')?.touched) {
-                  @if (form.get('dob')?.hasError('required')) {
-                    <p class="form-error">Date of birth is required</p>
-                  }
-                  @if (form.get('dob')?.hasError('futureDate')) {
-                    <p class="form-error">Date of birth cannot be a future date</p>
-                  }
-                }
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="pd-status">Status *</label>
-                <select id="pd-status" formControlName="status" class="form-select">
-                  @for (s of statuses; track s) {
-                    <option [value]="s">{{ s }}</option>
-                  }
-                </select>
-              </div>
-            </div>
+          <div class="form-group">
+            <label class="form-label" for="mr-follow-up">Follow-up Date</label>
+            <input id="mr-follow-up" type="date" formControlName="followUpDate" class="form-input" />
+          </div>
 
-            <h4 class="section-title">Address</h4>
-            <div class="form-grid" formGroupName="address">
-              <div class="form-group">
-                <label class="form-label" for="pd-house-name">House Name *</label>
-                <input id="pd-house-name" type="text" formControlName="houseName" class="form-input" />
-                @if (addressCtrl('houseName')?.touched && addressCtrl('houseName')?.invalid) {
-                  <p class="form-error">House name is required</p>
-                }
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="pd-house-number">House Number *</label>
-                <input id="pd-house-number" type="text" formControlName="houseNumber" class="form-input" />
-                @if (addressCtrl('houseNumber')?.touched && addressCtrl('houseNumber')?.invalid) {
-                  <p class="form-error">House number is required</p>
-                }
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="pd-city">City *</label>
-                <input id="pd-city" type="text" formControlName="city" class="form-input" />
-                @if (addressCtrl('city')?.touched && addressCtrl('city')?.invalid) {
-                  <p class="form-error">City is required</p>
-                }
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="pd-post-code">Post Code *</label>
-                <input id="pd-post-code" type="text" formControlName="postCode" class="form-input" />
-                @if (addressCtrl('postCode')?.touched && addressCtrl('postCode')?.invalid) {
-                  <p class="form-error">Post code is required</p>
-                }
-              </div>
-            </div>
+          <div class="form-group">
+            <label class="form-label" for="mr-diagnosis">Diagnosis *</label>
+            <input id="mr-diagnosis" type="text" formControlName="diagnosis" class="form-input"
+              placeholder="Primary diagnosis" />
+            @if (recordForm.get('diagnosis')?.touched && recordForm.get('diagnosis')?.invalid) {
+            <p class="form-error">Diagnosis is required</p>
+            }
+          </div>
 
-            <h4 class="section-title">Emergency Contact</h4>
-            <div class="form-grid" formGroupName="emergencyContact">
-              <div class="form-group">
-                <label class="form-label" for="pd-contact-name">Contact Name *</label>
-                <input id="pd-contact-name" type="text" formControlName="contactName" class="form-input" />
-                @if (emergencyCtrl('contactName')?.touched && emergencyCtrl('contactName')?.invalid) {
-                  @if (emergencyCtrl('contactName')?.hasError('name')) {
-                    <p class="form-error">Enter a valid name (2–50 letters, spaces, hyphens, apostrophes or periods)</p>
-                  } @else {
-                    <p class="form-error">Contact name is required</p>
-                  }
-                }
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="pd-relationship">Relationship *</label>
-                <input id="pd-relationship" type="text" formControlName="relationship" class="form-input" />
-                @if (emergencyCtrl('relationship')?.touched && emergencyCtrl('relationship')?.invalid) {
-                  <p class="form-error">Relationship is required</p>
-                }
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="pd-contact-number">Contact Number *</label>
-                <input id="pd-contact-number" type="tel" formControlName="contactNumber" class="form-input" />
-                @if (emergencyCtrl('contactNumber')?.touched) {
-                  @if (emergencyCtrl('contactNumber')?.hasError('required')) {
-                    <p class="form-error">Contact number is required</p>
-                  }
-                  @if (emergencyCtrl('contactNumber')?.hasError('phone')) {
-                    <p class="form-error">
-                      Enter 10 digits, optionally with a country code (e.g. +91 1234567890 or 1234567890)
-                    </p>
-                  }
-                }
-              </div>
-            </div>
+          <div class="form-group">
+            <label class="form-label" for="mr-symptoms">Symptoms *</label>
+            <input id="mr-symptoms" type="text" formControlName="symptoms" class="form-input"
+              placeholder="Fever, Cough, Headache (comma separated)" />
+            @if (recordForm.get('symptoms')?.touched && recordForm.get('symptoms')?.invalid) {
+            <p class="form-error">At least one symptom is required</p>
+            }
+          </div>
 
-            <div class="form-actions">
-              <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="cancelEdit()">
-                Cancel
-              </button>
-              <button type="submit" class="btn btn-primary" [disabled]="saving()">
-                @if (saving()) { <span>Saving…</span> }
-                @else { <span>Save Changes</span> }
-              </button>
-            </div>
-          </form>
+          <div class="form-group form-group--full">
+            <label class="form-label" for="mr-notes">Notes</label>
+            <textarea id="mr-notes" formControlName="notes" class="form-textarea"
+              placeholder="Additional clinical notes…" rows="3"></textarea>
+          </div>
         </div>
+
+        <!-- Prescription items -->
+        <div class="prescription-section">
+          <div class="prescription-header">
+            <span class="form-label">Prescription</span>
+            <button type="button" class="btn btn-secondary btn-sm" (click)="addPrescriptionItem()">
+              + Add Item
+            </button>
+          </div>
+
+          <div formArrayName="prescription">
+            @for (ctrl of prescriptionItems.controls; track $index; let i = $index) {
+            <div [formGroupName]="i" class="prescription-row">
+              <div class="prescription-fields">
+                <div class="form-group">
+                  <label class="form-label">Medication *</label>
+                  <input type="text" formControlName="medication" class="form-input" placeholder="Drug name" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Dosage *</label>
+                  <input type="text" formControlName="dosage" class="form-input" placeholder="500mg" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Duration *</label>
+                  <input type="text" formControlName="duration" class="form-input" placeholder="7 days" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Notes</label>
+                  <input type="text" formControlName="notes" class="form-input" placeholder="After meals" />
+                </div>
+                <button type="button" class="btn-rx-remove" (click)="removePrescriptionItem(i)"
+                  aria-label="Remove prescription item">
+                  ✕
+                </button>
+              </div>
+            </div>
+            }
+          </div>
+
+          @if (prescriptionItems.length === 0) {
+          <p class="muted" style="padding: 0.5rem 0; font-size: 0.875rem;">
+            No prescription items. Click "+ Add Item" to add one.
+          </p>
+          }
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" [disabled]="savingRecord()" (click)="closeRecordForm()">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="savingRecord()">
+            @if (savingRecord()) { <span>Saving…</span> } @else { <span>Save Record</span> }
+          </button>
+        </div>
+      </form>
+    </div>
+    }
+
+    <!-- ── Empty state ───────────────────────────────────────────── -->
+    @if (medicalRecords().length === 0 && recordFormMode() === null) {
+    <div class="empty-box">
+      <p>No medical records found for this patient.</p>
+    </div>
+    }
+
+    <!-- ── Record list ────────────────────────────────────────────── -->
+    @for (record of medicalRecords(); track record.recordId) {
+    <div class="record-card">
+      <div class="record-header" tabindex="0" (click)="toggleRecord(record.recordId)"
+        (keydown.enter)="toggleRecord(record.recordId)"
+        (keydown.space)="toggleRecord(record.recordId); $event.preventDefault()">
+        <div class="record-summary">
+          <span class="record-date">{{ record.visitDate | date: 'mediumDate' }}</span>
+          <span class="record-diagnosis">{{ record.diagnosis }}</span>
+          @if (record.doctorName) {
+          <span class="record-doctor">Dr. {{ record.doctorName }}</span>
+          }
+        </div>
+        <div class="record-actions" (click)="$event.stopPropagation()">
+          @if (canEditThisRecord(record)) {
+          <button type="button" class="btn btn-secondary btn-sm" (click)="openEditRecord(record)">
+            Edit
+          </button>
+          }
+          @if (canDeleteRecord()) {
+          <button type="button" class="btn btn-danger btn-sm" (click)="deleteRecord(record)">
+            Delete
+          </button>
+          }
+          <span class="record-toggle">
+            {{ expandedRecordId() === record.recordId ? '▲' : '▼' }}
+          </span>
+        </div>
+      </div>
+
+      @if (expandedRecordId() === record.recordId) {
+      <div class="record-body">
+        <div class="detail-grid">
+          <div class="detail">
+            <span class="detail-label">Symptoms</span>
+            <span class="detail-value">{{ record.symptoms.join(', ') }}</span>
+          </div>
+          @if (record.followUpDate) {
+          <div class="detail">
+            <span class="detail-label">Follow-up Date</span>
+            <span class="detail-value">{{ record.followUpDate | date: 'mediumDate' }}</span>
+          </div>
+          }
+          @if (record.notes) {
+          <div class="detail form-group--full">
+            <span class="detail-label">Notes</span>
+            <span class="detail-value">{{ record.notes }}</span>
+          </div>
+          }
+        </div>
+
+        @if (record.prescription.length > 0) {
+        <h4 class="section-title">Prescription</h4>
+        <div class="prescription-list">
+          @for (item of record.prescription; track $index) {
+          <div class="prescription-item-view">
+            <span class="presc-med">{{ item.medication }}</span>
+            <span class="presc-detail">{{ item.dosage }} · {{ item.duration }}</span>
+            @if (item.notes) {
+            <span class="presc-notes">{{ item.notes }}</span>
+            }
+          </div>
+          }
+        </div>
+        }
+      </div>
       }
+    </div>
+    }
+
+    }
+    }
+
     }
   </div>
 </app-dashboard-layout>

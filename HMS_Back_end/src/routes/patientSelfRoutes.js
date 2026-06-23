@@ -12,41 +12,27 @@ const {
     patientCancelAppointmentValidation
 } = require("../validators/patientAppointmentValidators");
 
+const { medicalRecordIdValidation } = require("../validators/medicalRecordValidators");
+
 router.use(patientAuth);
 
 router.get("/me", controller.getMyProfile);
 
-router.put(
-    "/me",
-    patientProfileUpdateValidation,
-    validate,
-    controller.updateMyProfile
-);
+router.put("/me", patientProfileUpdateValidation, validate, controller.updateMyProfile);
 
 router.get("/doctors", controller.getDoctors);
 router.get("/booked-slots", controller.getBookedSlots);
 
 router.get("/appointments", controller.getMyAppointments);
 
-router.post(
-    "/appointments",
-    patientBookAppointmentValidation,
-    validate,
-    controller.bookAppointment
-);
+router.post("/appointments", patientBookAppointmentValidation, validate, controller.bookAppointment);
 
-router.put(
-    "/appointments/:appointmentId",
-    [...patientAppointmentIdValidation, ...patientBookAppointmentValidation],
-    validate,
-    controller.updateMyAppointment
-);
+router.put("/appointments/:appointmentId", [...patientAppointmentIdValidation, ...patientBookAppointmentValidation], validate, controller.updateMyAppointment);
 
-router.put(
-    "/appointments/:appointmentId/cancel",
-    patientCancelAppointmentValidation,
-    validate,
-    controller.cancelMyAppointment
-);
+router.put("/appointments/:appointmentId/cancel", patientCancelAppointmentValidation, validate, controller.cancelMyAppointment);
+
+router.get("/medical-records", controller.getMyMedicalRecords);
+
+router.get("/medical-records/:medicalRecordId", medicalRecordIdValidation, validate, controller.getMyMedicalRecordById);
 
 module.exports = router;

@@ -1,9 +1,14 @@
 import { AvailabilitySlot } from './employee.model';
 import { ApiResponse, PaginatedData } from './api-response.model';
 
-export type AppointmentStatus = 'BOOKED' | 'CANCELED' | 'COMPLETED';
+export type AppointmentStatus =
+  | 'PENDING_REVIEW'
+  | 'BOOKED'
+  | 'CANCELED'
+  | 'COMPLETED';
 
 export const APPOINTMENT_STATUSES: AppointmentStatus[] = [
+  'PENDING_REVIEW',
   'BOOKED',
   'CANCELED',
   'COMPLETED',

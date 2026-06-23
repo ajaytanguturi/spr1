@@ -1,4 +1,6 @@
 const Appointment = require("../models/Appointments");
+const Patient = require("../models/Patients");
+const Employee = require("../models/Employees");
 const checkAppointmentValidity = require("../validators/checkAppointmentValidity");
 const recordAudit = require("../utils/recordAudit");
 const resolveActor = require("../utils/resolveActor");
@@ -26,7 +28,8 @@ exports.createAppointment = async (req, res) => {
         patientId,
         doctorId: doctorEmployeeId,
         appointmentDate,
-        timeSlot
+        timeSlot,
+        allowSameDay: true
     });
 
     const appointment = await Appointment.create({
@@ -34,6 +37,8 @@ exports.createAppointment = async (req, res) => {
         doctorEmployeeId,
         appointmentDate,
         timeSlot,
+        status: "BOOKED",
+        bookingSource: "STAFF",
         createdByEmployeeId: req.user.employeeCode
     });
 
@@ -57,9 +62,7 @@ exports.createAppointment = async (req, res) => {
         )
     });
 
-    return sendSuccess(res, STATUS.CREATED, MESSAGES.APPOINTMENT.CREATED, {
-        appointment
-    });
+    return sendSuccess(res, STATUS.CREATED, MESSAGES.APPOINTMENT.CREATED, { appointment });
 };
 
 exports.getAppointments = async (req, res) => {
@@ -77,6 +80,13 @@ exports.getAppointments = async (req, res) => {
     if (req.query.patientId) {
         filter.patientId = req.query.patientId;
     }
+
+    return paginateAppointments(filter, req.query, res);
+};
+
+exports.getPendingAppointments = async (req, res) => {
+
+    const filter = { status: "PENDING_REVIEW" };
 
     return paginateAppointments(filter, req.query, res);
 };
@@ -140,9 +150,7 @@ exports.cancelAppointment = async (req, res) => {
         )
     });
 
-    return sendSuccess(res, STATUS.OK, MESSAGES.APPOINTMENT.CANCELLED, {
-        appointment
-    });
+    return sendSuccess(res, STATUS.OK, MESSAGES.APPOINTMENT.CANCELLED, { appointment });
 };
 
 exports.updateAppointment = async (req, res) => {
@@ -161,7 +169,7 @@ exports.updateAppointment = async (req, res) => {
         throw new AppError(STATUS.NOT_FOUND, MESSAGES.APPOINTMENT.NOT_FOUND);
     }
 
-    if (appointment.status !== "BOOKED") {
+    if (!["BOOKED", "PENDING_REVIEW"].includes(appointment.status)) {
         throw new AppError(STATUS.BAD_REQUEST, MESSAGES.APPOINTMENT.ONLY_BOOKED_EDITABLE);
     }
 
@@ -170,13 +178,15 @@ exports.updateAppointment = async (req, res) => {
         doctorId: doctorEmployeeId,
         appointmentDate,
         timeSlot,
-        excludeAppointmentId: appointmentId
+        excludeAppointmentId: appointmentId,
+        allowSameDay: true
     });
 
     appointment.patientId = patientId;
     appointment.doctorEmployeeId = doctorEmployeeId;
     appointment.appointmentDate = appointmentDate;
     appointment.timeSlot = timeSlot;
+    appointment.status = "BOOKED";
     await appointment.save();
 
     await sendAppointmentEmail(patient.email, emailTemplates.appointmentUpdated({
@@ -194,7 +204,94 @@ exports.updateAppointment = async (req, res) => {
         message: MESSAGES.AUDIT.APPOINTMENT_UPDATED(appointment.appointmentId)
     });
 
-    return sendSuccess(res, STATUS.OK, MESSAGES.APPOINTMENT.UPDATED, {
+    return sendSuccess(res, STATUS.OK, MESSAGES.APPOINTMENT.UPDATED, { appointment });
+};
+
+exports.approveAppointment = async (req, res) => {
+    const { appointmentId } = req.params;
+    const appointment = await Appointment.findOne({ appointmentId });
+    if (!appointment) {
+        throw new AppError(STATUS.NOT_FOUND, MESSAGES.APPOINTMENT.NOT_FOUND);
+    }
+    if (appointment.status !== "PENDING_REVIEW") {
+        throw new AppError(STATUS.BAD_REQUEST, MESSAGES.APPOINTMENT.ONLY_PENDING_REVIEW_APPROVABLE);
+    }
+    const { patient, doctor } = await checkAppointmentValidity({
+        patientId: appointment.patientId,
+        doctorId: appointment.doctorEmployeeId,
+        appointmentDate: appointment.appointmentDate,
+        timeSlot: appointment.timeSlot,
+        excludeAppointmentId: appointment.appointmentId,
+        allowSameDay: true
+    });
+    appointment.status = "BOOKED";
+    appointment.approvedByEmployeeId = req.user.employeeCode;
+    appointment.approvedAt = new Date();
+    await appointment.save();
+
+    await sendAppointmentEmail(patient.email, emailTemplates.appointmentApproved({
+        patientName: patient.name,
+        doctorName: doctor.name,
+        appointmentDate: appointment.appointmentDate,
+        timeSlot: appointment.timeSlot
+    }));
+
+    const actor = await resolveActor(req.user);
+    await recordAudit({
+        actor,
+        action: "APPOINTMENT_APPROVED",
+        targetType: "APPOINTMENT",
+        targetId: appointment.appointmentId,
+        message: MESSAGES.AUDIT.APPOINTMENT_APPROVED(appointemnt.appointmentId)
+    });
+};
+
+exports.rejectAppointment = async (req, res) => {
+
+    const { appointmentId } = req.params;
+    const { rejectionReason } = req.body;
+
+    const appointment = await Appointment.findOne({ appointmentId });
+
+    if (!appointment) {
+        throw new AppError(STATUS.NOT_FOUND, MESSAGES.APPOINTMENT.NOT_FOUND);
+    }
+
+    if (appointment.status !== "PENDING_REVIEW") {
+        throw new AppError(STATUS.BAD_REQUEST, MESSAGES.APPOINTMENT.ONLY_PENDING_REVIEW_REJECTABLE);
+    }
+
+    appointment.status = "REJECTED";
+    appointment.rejectionReason = rejectionReason;
+    appointment.approvedByEmployeeId = req.user.employeeCode;
+    appointment.approvedAt = new Date();
+    await appointment.save();
+
+    const [patient, doctor] = await Promise.all([
+        Patient.findOne({ UHID: appointment.patientId }).select("name email"),
+        Employee.findOne({ employeeCode: appointment.doctorEmployeeId }).select("name")
+    ]);
+
+    if (patient?.email) {
+        await sendAppointmentEmail(patient.email, emailTemplates.appointmentRejected({
+            patientName: patient.name,
+            doctorName: doctor?.name,
+            appointmentDate: appointment.appointmentDate,
+            timeSlot: appointment.timeSlot,
+            rejectionReason
+        }));
+    }
+
+    const actor = await resolveActor(req.user);
+    await recordAudit({
+        actor,
+        action: "APPOINTMENT_REJECTED",
+        targetType: "APPOINTMENT",
+        targetId: appointment.appointmentId,
+        message: MESSAGES.AUDIT.APPOINTMENT_REJECTED(appointment.appointmentId, rejectionReason)
+    });
+
+    return sendSuccess(res, STATUS.OK, MESSAGES.APPOINTMENT.REJECTED, {
         appointment
     });
 };
@@ -216,7 +313,13 @@ exports.completeAppointment = async (req, res) => {
     if (appointment.status === "CANCELED") {
         throw new AppError(STATUS.BAD_REQUEST, MESSAGES.APPOINTMENT.CANCELLED_CANNOT_COMPLETE);
     }
+    if (appointment.status === "REJECTED") {
+        throw new AppError(STATUS.BAD_REQUEST, MESSAGES.APPOINTMENT.REJECTED_CANNOT_CANCEL);
+    }
 
+    if (appointment.status === "PENDING_REVIEW") {
+        throw new AppError(STATUS.BAD_REQUEST, MESSAGES.APPOINTMENT.PENDING_REVIEW_CANNOT_COMPLETE);
+    }
     if (appointment.status === "COMPLETED") {
         throw new AppError(STATUS.BAD_REQUEST, MESSAGES.APPOINTMENT.ALREADY_COMPLETED);
     }
@@ -243,7 +346,5 @@ exports.completeAppointment = async (req, res) => {
         message: MESSAGES.AUDIT.APPOINTMENT_COMPLETED(appointment.appointmentId)
     });
 
-    return sendSuccess(res, STATUS.OK, MESSAGES.APPOINTMENT.COMPLETED, {
-        appointment
-    });
+    return sendSuccess(res, STATUS.OK, MESSAGES.APPOINTMENT.COMPLETED, { appointment });
 };

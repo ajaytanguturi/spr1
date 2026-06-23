@@ -321,10 +321,23 @@ exports.approveProfileChange = async (req, res) => {
     throw new AppError(STATUS.NOT_FOUND, MESSAGES.EMPLOYEE.NOT_FOUND);
   }
 
-  request.requestedChanges.forEach((change, field) => {
-    employee[field] = change.new;
-  });
+  // request.requestedChanges.forEach((change, field) => {
+  //   employee[field] = change.new;
+  // });
 
+  const changes = request.requestedChanges;
+
+  if (typeof changes === "object" && !Array.isArray(changes)) {
+    // Plain object: { fieldName: { old: "...", new: "..." } }
+    Object.entries(changes).forEach(([field, change]) => {
+      employee[field] = change.new;
+    });
+  } else if (Array.isArray(changes)) {
+    // Array format fallback
+    changes.forEach(({ field, new: newValue }) => {
+      employee[field] = newValue;
+    });
+  }
   await employee.save();
 
   request.status = "APPROVED";

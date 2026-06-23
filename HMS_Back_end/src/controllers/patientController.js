@@ -212,3 +212,22 @@ exports.updatePatient = async (req, res) => {
         patient: safePatient
     });
 };
+
+exports.deletePatient = async (req, res) => {
+    const { UHID } = req.params;
+    const patient = await Patient.findOne({ UHID });
+    if (!patient) {
+        throw new AppError(STATUS.NOT_FOUND, MESSAGES.PATIENT.NOT_FOUND);
+    }
+    patient.status = "INACTIVE";
+    await patient.save();
+    const actor = await resolveActor(req.user);
+    await recordAudit({
+        actor,
+        action: "PATIENT_DELETED",
+        targetType: "PATIENT",
+        targetId: UHID,
+        message: MESSAGES.AUDIT.PATIENT_DELETED(patient.name, UHID)
+    });
+    return sendSuccess(res, STATUS.OK, MESSAGES.PATIENT.DELETED)
+}

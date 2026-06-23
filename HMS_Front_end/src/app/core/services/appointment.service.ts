@@ -2,13 +2,8 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import {
-  AppointmentResponse,
-  AppointmentsResponse,
-  BookedSlotsResponse,
-  CreateAppointmentPayload,
-  UpdateAppointmentPayload,
-} from '../models/appointment.model';
+import { AppointmentResponse, AppointmentsResponse, BookedSlotsResponse, CreateAppointmentPayload, UpdateAppointmentPayload } from '../models/appointment.model';
+
 
 export interface AppointmentFilters {
   status?: string;
@@ -51,6 +46,18 @@ export class AppointmentService {
     return this.http.get<AppointmentsResponse>(`${this.apiUrl}/my`, {
       params,
     });
+  }
+
+  getPendingReviewAppointments(
+    page = 1,
+    limit = 10,
+  ): Observable<AppointmentsResponse> {
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+    return this.http.get<AppointmentsResponse>(
+      `${this.apiUrl}/pending-review`, { params },
+    );
   }
 
   getAppointmentById(appointmentId: string): Observable<AppointmentResponse> {
@@ -99,6 +106,22 @@ export class AppointmentService {
     return this.http.put<AppointmentResponse>(
       `${this.apiUrl}/${appointmentId}/complete`,
       {},
+    );
+  }
+
+  approveAppointment(appointmentId: string): Observable<AppointmentResponse> {
+    return this.http.put<AppointmentResponse>(
+      `${this.apiUrl}/${appointmentId}/approve`, {}
+    );
+  }
+
+  rejectAppointment(
+    appointmentId: string,
+    cancellationReason: string,
+  ): Observable<AppointmentResponse> {
+    return this.http.put<AppointmentResponse>(
+      `${this.apiUrl}/${appointmentId}/reject`,
+      { cancellationReason },
     );
   }
 

@@ -15,7 +15,7 @@ const getBookedSlots = async (req, res) => {
     const bookedSlotsFilter = {
         doctorEmployeeId,
         appointmentDate: { $gte: start, $lte: end },
-        status: "BOOKED"
+        status: { $in: ["BOOKED", "PENDING_REVIEW"] }
     };
 
     if (excludeAppointmentId) {

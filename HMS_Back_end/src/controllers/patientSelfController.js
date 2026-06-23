@@ -2,6 +2,7 @@ const Patient = require("../models/Patients");
 const Employee = require("../models/Employees");
 const User = require("../models/Users");
 const Appointment = require("../models/Appointments");
+const MedicalRecord = require("../models/MedicalRecords");
 const emailTemplates = require("../utils/emailTemplates");
 const checkAppointmentValidity = require("../validators/checkAppointmentValidity");
 const paginateAppointments = require("../utils/paginateAppointments");
@@ -9,11 +10,14 @@ const getBookedSlots = require("../utils/getBookedSlots");
 const sendAppointmentEmail = require("../utils/sendAppointmentEmail");
 const cancelAppointmentRecord = require("../utils/cancelAppointmentRecord");
 const recordAudit = require("../utils/recordAudit");
+const parsePagination = require("../utils/parsePagination");
 const { toSafePatient, PATIENT_SAFE_PROJECTION } = require("../utils/toSafePatient");
 const AppError = require("../utils/AppError");
 const { sendSuccess } = require("../utils/apiResponse");
 const STATUS = require("../constants/statusCodes");
 const MESSAGES = require("../constants/messages");
+
+const MEDICAL_RECORD_PROJECTION = "-__v";
 
 const patientActor = (patient) => ({
     employeeCode: patient.UHID,
@@ -31,9 +35,7 @@ exports.getMyProfile = async (req, res) => {
         throw new AppError(STATUS.NOT_FOUND, MESSAGES.PATIENT.NOT_FOUND);
     }
 
-    return sendSuccess(res, STATUS.OK, MESSAGES.PATIENT.PROFILE_RETRIEVED, {
-        patient
-    });
+    return sendSuccess(res, STATUS.OK, MESSAGES.PATIENT.PROFILE_RETRIEVED, { patient });
 };
 
 exports.updateMyProfile = async (req, res) => {
@@ -115,17 +117,19 @@ exports.bookAppointment = async (req, res) => {
         patientId,
         doctorId: doctorEmployeeId,
         appointmentDate,
-        timeSlot
+        timeSlot,
+        allowSameDay: false
     });
 
     const appointment = await Appointment.create({
         patientId,
         doctorEmployeeId,
         appointmentDate,
-        timeSlot
+        timeSlot,
+        status: "PENDING_REVIEW",
+        createdByRole: "PATIENT",
     });
-
-    await sendAppointmentEmail(patient.email, emailTemplates.appointmentScheduled({
+    await sendAppointmentEmail(patient.email, emailTemplates.appointmentPendingReview({
         patientName: patient.name,
         doctorName: doctor.name,
         appointmentDate,
@@ -144,9 +148,7 @@ exports.bookAppointment = async (req, res) => {
         )
     });
 
-    return sendSuccess(res, STATUS.CREATED, MESSAGES.APPOINTMENT.CREATED, {
-        appointment
-    });
+    return sendSuccess(res, STATUS.CREATED, MESSAGES.APPOINTMENT.CREATED, { appointment });
 };
 exports.updateMyAppointment = async (req, res) => {
 
@@ -164,7 +166,7 @@ exports.updateMyAppointment = async (req, res) => {
         throw new AppError(STATUS.FORBIDDEN, MESSAGES.APPOINTMENT.OWN_ONLY_MODIFY);
     }
 
-    if (appointment.status !== "BOOKED") {
+    if (!["BOOKED", "PENDING_REVIEW"].includes(appointment.status)) {
         throw new AppError(STATUS.BAD_REQUEST, MESSAGES.APPOINTMENT.ONLY_BOOKED_EDITABLE);
     }
 
@@ -173,15 +175,17 @@ exports.updateMyAppointment = async (req, res) => {
         doctorId: doctorEmployeeId,
         appointmentDate,
         timeSlot,
-        excludeAppointmentId: appointmentId
+        excludeAppointmentId: appointmentId,
+        allowSameDay: false
     });
 
     appointment.doctorEmployeeId = doctorEmployeeId;
     appointment.appointmentDate = appointmentDate;
     appointment.timeSlot = timeSlot;
+    appointment.status = "PENDING_REVIEW";
     await appointment.save();
 
-    await sendAppointmentEmail(patient.email, emailTemplates.appointmentUpdated({
+    await sendAppointmentEmail(patient.email, emailTemplates.appointmentPendingReview({
         patientName: patient.name,
         doctorName: doctor.name,
         appointmentDate,
@@ -199,9 +203,7 @@ exports.updateMyAppointment = async (req, res) => {
         )
     });
 
-    return sendSuccess(res, STATUS.OK, MESSAGES.APPOINTMENT.UPDATED, {
-        appointment
-    });
+    return sendSuccess(res, STATUS.OK, MESSAGES.APPOINTMENT.UPDATED, { appointment });
 };
 
 exports.cancelMyAppointment = async (req, res) => {
@@ -233,7 +235,34 @@ exports.cancelMyAppointment = async (req, res) => {
         )
     });
 
-    return sendSuccess(res, STATUS.OK, MESSAGES.APPOINTMENT.CANCELLED, {
-        appointment
+    return sendSuccess(res, STATUS.OK, MESSAGES.APPOINTMENT.CANCELLED, { appointment });
+};
+
+exports.getMyMedicalRecords = async (req, res) => {
+    const { page, limit, skip } = parsePagination(req.query, 20);
+    const filter = { patientId: req.patient.patientId };
+
+    const [records, total] = await Promise.all([
+        MedicalRecord.find(filter).select(MEDICAL_RECORD_PROJECTION).sort({ created_at: -1 }).skip(skip).limit(limit).lean(),
+        MedicalRecord.countDocuments(filter)
+    ]);
+
+    return sendSuccess(res, STATUS.OK, MESSAGES.MEDICAL_RECORD.LIST_RETRIEVED, {
+        total, page, limit, totalPages: Math.ceil(total / limit), medicalRecords: records
+    });
+};
+
+exports.getMyMedicalRecordById = async (req, res) => {
+    const { medicalRecordId } = req.params;
+    const record = await MedicalRecord.findOne({
+        medicalRecordId,
+        patientId: req.patient.patientId
+    }).select(MEDICAL_RECORD_PROJECTION)
+
+    if (!record) {
+        throw new AppError(STATUS.NOT_FOUND, MESSAGES.MEDICAL_RECORD.NOT_FOUND);
+    }
+    return sendSuccess(res, STATUS.OK, MESSAGES.MEDICAL_RECORD.RETRIEVED, {
+        medicalRecord: record
     });
 };

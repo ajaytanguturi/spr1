@@ -102,6 +102,7 @@ const MESSAGES = Object.freeze({
     APPOINTMENT: Object.freeze({
         ALREADY_CANCELLED: "Appointment is already cancelled",
         ALREADY_COMPLETED: "Appointment is already completed",
+        APPROVED: "Appointment approved successfully",
         BOOKED_SLOTS_RETRIEVED: "Booked slots retrieved successfully",
         CANCELLED: "Appointment cancelled successfully",
         CANCELLED_CANNOT_COMPLETE: "Cancelled appointments cannot be completed",
@@ -117,15 +118,23 @@ const MESSAGES = Object.freeze({
         LIST_RETRIEVED: "Appointments retrieved successfully",
         NOT_FOUND: "Appointment not found",
         ONLY_BOOKED_EDITABLE: "Only BOOKED appointments can be edited",
+        ONLY_PENDING_REVIEW_APPROVABLE: "Only apppointments peding review can be approved",
+        ONLY_PENDING_REVIEW_REJECTABLE: "Only appointments pending review can be rejected",
         OWN_ONLY_CANCEL: "You can only cancel your own appointments",
         OWN_ONLY_COMPLETE: "You can only complete your own appointments",
         OWN_ONLY_MODIFY: "You can only modify your own appointments",
         PAST_DATE: "Cannot book an appointment in the past.",
         PAST_TIME: "Cannot book an appointment for a time that has already passed.",
+        PATIENT_SAME_DAY_NOT_ALLOWED: "Appointments cannot be booked or rescheduled for today. Please choose a date starting tomorrow.",
         PATIENT_SLOT_CONFLICT: "Patient already has an appointment for this time slot",
+        PENDING_REVIEW: "Your appointment request has been submitted and is pending review",
+        PENDING_REVIEW_CANNOT_COMPLETE: "Appointments pending review must be approved before they can be completed",
+        PENDING_REVIEW_LIST_RETRIEVED: "Pending review appointments retrieved successfully",
+        REJECTED: "Appointment rejected successfully",
+        REJECTED_CANNOT_CANCEL: "Rejected appointments cannot be cancelled",
         RETRIEVED: "Appointment retrieved successfully",
         TOO_FAR_AHEAD: "Appointments can only be booked up to 6 months in advance.",
-        UPDATED: "Appointment updated successfully"
+        UPDATED: "Appointment updated successfully",
     }),
 
     NODE: Object.freeze({
@@ -147,15 +156,29 @@ const MESSAGES = Object.freeze({
         UNAUTHORIZED: "Unauthorized to access dashboard statistics"
     }),
 
+    MEDICAL_RECORD: Object.freeze({
+        APPOINTMENT_PATIENT_MISMATCH: "The selected appointment does not belong to this patient",
+        CREATED: "Medical record created successfully",
+        DELETED: "Medical record deleted successfully",
+        DOCTOR_REQUIRED: "Doctor employee id is required",
+        LIST_RETRIEVED: "Medical records retrieved successfully",
+        NOT_FOUND: "Medical record not found",
+        RETRIEVED: "Medical record retrieved successfully",
+        UPDATED: "Medical record updated successfully"
+    }),
+
     AUDIT: Object.freeze({
         ADMIN_CREATED: (name, code) => `Admin account created for ${name} (${code})`,
         ADMIN_DELETED: (name, code) => `Admin ${name} (${code}) was deleted`,
         ADMIN_UPDATED: (name, code) => `Admin ${name} (${code}) was updated`,
+        APPOINTMENT_APPROVED: (id) => `Appointment ${id} was approved`,
         APPOINTMENT_BOOKED: (id, patientName, doctorName) => `Appointment ${id} booked for ${patientName} with ${doctorName}`,
         APPOINTMENT_BOOKED_BY_PATIENT: (id, patientName, doctorName) => `Appointment ${id} booked by ${patientName} with ${doctorName}`,
         APPOINTMENT_CANCELLED: (id, reason) => `Appointment ${id} was cancelled. Reason: ${reason}`,
         APPOINTMENT_CANCELLED_BY_PATIENT: (id, reason) => `Appointment ${id} cancelled by patient. Reason: ${reason}`,
         APPOINTMENT_COMPLETED: (id) => `Appointment ${id} was marked completed`,
+        APPOINTMENT_PENDING_REVIEW: (id, patientName, doctorName) => `Appointment ${id} requested by ${patientName} with ${doctorName}, pending review`,
+        APPOINTMENT_REJECTED: (id, reason) => `Appointment ${id} was rejected. Reason: ${reason}`,
         APPOINTMENT_RESCHEDULED_BY_PATIENT: (id, patientName) => `Appointment ${id} rescheduled by ${patientName}`,
         APPOINTMENT_UPDATED: (id) => `Appointment ${id} was updated`,
         DOCTOR_DELETED_CANCELLATION: (id, doctorName, code, reason) =>
@@ -166,6 +189,9 @@ const MESSAGES = Object.freeze({
         EMPLOYEE_PROFILE_UPDATED: (name, code) => `${name} (${code}) updated their profile`,
         EMPLOYEE_REGISTRATION_REJECTED: (code, username) => `Employee registration ${code} (${username}) was rejected`,
         EMPLOYEE_UPDATED: (name, code) => `Employee ${name} (${code}) was updated`,
+        MEDICAL_RECORD_CREATED: (id, patientName, uhid) => `Medical record ${id} created for ${patientName} (${uhid})`,
+        MEDICAL_RECORD_DELETED: (id) => `Medical record ${id} was deleted`,
+        MEDICAL_RECORD_UPDATED: (id) => `Medical record ${id} was updated`,
         PATIENT_PROFILE_UPDATED: (name, uhid) => `Patient ${name} (${uhid}) updated their profile`,
         PATIENT_REGISTERED: (name, uhid) => `Patient ${name} (${uhid}) was registered`,
         PATIENT_UPDATED: (name, uhid) => `Patient ${name} (${uhid}) was updated`,

@@ -25,6 +25,7 @@ export const APP_MESSAGES = {
   LOAD_APPROVALS_FAILED: 'Failed to load approvals.',
   LOAD_PROFILE_FAILED: 'Failed to load profile.',
   LOAD_STATS_FAILED: 'Failed to load statistics.',
+  LOAD_MEDICAL_RECORDS_FAILED: 'Failed to load meical records',
 
   PATIENT_CREATED: 'Patient created.',
   PATIENT_CREATE_FAILED: 'Failed to create patient.',
@@ -63,4 +64,15 @@ export const APP_MESSAGES = {
   APPOINTMENT_CANCEL_FAILED: 'Failed to cancel.',
   APPOINTMENT_COMPLETED: 'Appointment marked as completed.',
   APPOINTMENT_COMPLETE_FAILED: 'Failed to complete appointment.',
+  APPOINTMENT_REVIEW_APPROVED: 'Appointment approved successfully.',
+  APPOINTMENT_REVIEW_APPROVE_FAILED: 'Failed to approve appointment.',
+  APPOINTMENT_REVIEW_REJECTED: 'Appointment rejected.',
+  APPOINTMENT_REVIEW_REJECT_FAILED: 'Failed to reject appointment.',
+
+  MEDICAL_RECORD_CREATED: 'Medical record created.',
+  MEDICAL_RECORD_CREATE_FAILED: 'Failed to create medical record.',
+  MEDICAL_RECORD_UPDATED: 'Medical record updated.',
+  MEDICAL_RECORD_UPDATE_FAILED: 'Failed to update medical record.',
+  MEDICAL_RECORD_DELETED: 'Medical record deleted.',
+  MEDICAL_RECORD_DELETE_FAILED: 'Failed to delete medical record.',
 } as const;

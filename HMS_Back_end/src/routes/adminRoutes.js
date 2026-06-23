@@ -1,15 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const { param } = require("express-validator");
+const { param, body } = require("express-validator");
 const validate = require("../middlewares/validate");
 const auth = require("../middlewares/authMiddleware");
 const authorizeRoles = require("../middlewares/authorizeRolesMiddleware");
 const controller = require("../controllers/adminController");
-const {
-  employeeBaseValidators,
-  joiningDateValidator,
-} = require("../validators/employeeValidation");
+const { employeeBaseValidators, joiningDateValidator, } = require("../validators/employeeValidation");
 const { nameValidator } = require("../validators/sharedValidators");
+const approvalController = require("../controllers/appointmentApprovalController")
 
 router.use(auth, authorizeRoles("OWNER", "ADMIN"));
 
@@ -29,6 +27,15 @@ const employeeUpdateValidation = [
 const requestIdValidation = [
   param("requestId").notEmpty().withMessage("Request ID is required"),
 ];
+
+const appointmentIdValidation = [param("appointmentId").notEmpty().withMessage("Appointment Id is Required")];
+
+const rejectAppointmentValidation = [
+  ...appointmentIdValidation,
+  body("rejectionReason")
+    .notEmpty()
+    .withMessage("Rejection reason is required"),
+]
 
 router.post(
   "/create-employee",
@@ -93,5 +100,11 @@ router.put(
   validate,
   controller.rejectProfileChange,
 );
+
+router.get("/appointment-requests", approvalController.getPendingAppointments);
+
+router.put("/appointments/:appointmentId/approve", appointmentIdValidation, validate, approvalController.approveAppointment);
+
+router.put("/appointments/:appointmentId/reject", rejectAppointmentValidation, validate, approvalController.rejectAppointment);
 
 module.exports = router;

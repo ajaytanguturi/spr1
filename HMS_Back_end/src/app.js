@@ -14,6 +14,7 @@ const employeeRoutes = require("./routes/employeeRoutes");
 const nodeRoutes = require("./routes/nodeRoutes");
 const patientAuthRoutes = require("./routes/patientAuthRoutes");
 const patientSelfRoutes = require("./routes/patientSelfRoutes");
+const medicalRecordRoutes = require("./routes/medicalRecordRoutes");
 const mongoose = require("mongoose");
 
 const notFound = require("./middlewares/notFound");
@@ -53,6 +54,7 @@ app.use("/api/appointments", appointmentRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/nodes", nodeRoutes);
 
+app.use("/api/medical-records", medicalRecordRoutes);
 app.use("/api/patient/auth", patientAuthRoutes);
 app.use("/api/patient", patientSelfRoutes);
 

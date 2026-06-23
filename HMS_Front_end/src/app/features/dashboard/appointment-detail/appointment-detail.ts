@@ -10,16 +10,12 @@ import { APP_MESSAGES } from '../../../core/constants/messages';
 import { ConfirmModalService } from '../../../core/services/confirm-modal.service';
 import { Appointment } from '../../../core/models/appointment.model';
 
-// Appointment detail; reception can cancel BOOKED, the doctor can complete their own
+type BusyAction = 'cancel' | 'complete' | 'approve' | 'reject';
+
 @Component({
   selector: 'app-appointment-detail',
   standalone: true,
-  imports: [
-    CommonModule,
-    RouterLink,
-    DashboardLayoutComponent,
-    DatePipe,
-  ],
+  imports: [CommonModule, RouterLink, DashboardLayoutComponent, DatePipe,],
   templateUrl: './appointment-detail.html',
   styleUrl: './appointment-detail.css',
 })
@@ -35,8 +31,7 @@ export class AppointmentDetailComponent implements OnInit {
   appointment = signal<Appointment | null>(null);
   loading = signal(true);
 
-  // Action in flight; all header buttons disable while set
-  busyAction = signal<'cancel' | 'complete' | null>(null);
+  busyAction = signal<BusyAction | null>(null);
   busy = computed(() => this.busyAction() !== null);
 
   isDoctor = computed(() => this.authService.getDesignation() === 'DOCTOR');
@@ -45,6 +40,11 @@ export class AppointmentDetailComponent implements OnInit {
     return d === 'OWNER' || d === 'ADMIN' || d === 'RECEPTIONIST';
   });
 
+  canReview = computed(
+    () =>
+      this.hasReceptionAccess() &&
+      this.appointment()?.status === 'PENDING_REVIEW',
+  );
   canEdit = computed(
     () =>
       this.hasReceptionAccess() &&
@@ -60,10 +60,9 @@ export class AppointmentDetailComponent implements OnInit {
   // Visibility only; the button enables once the start time passes
   canComplete = computed(() => {
     const a = this.appointment();
-    if (a?.status !== 'BOOKED') {
+    if (a?.status !== 'BOOKED' || !this.isDoctor()) {
       return false;
     }
-    if (!this.isDoctor()) return false;
     return (
       a.doctorEmployeeId ===
       this.authService.getCurrentUser()?.profile?.employeeCode
@@ -107,10 +106,80 @@ export class AppointmentDetailComponent implements OnInit {
     });
   }
 
+  goToPatientRecords(uhid: string): void {
+    this.router.navigate(['/dashboard/patients', uhid], {
+      queryParams: { tab: 'records' },
+    });
+  }
+
   editAppointment(): void {
     const a = this.appointment();
     if (!a) return;
     this.router.navigate(['/dashboard/appointments', a.appointmentId, 'edit']);
+  }
+
+  async approve(): Promise<void> {
+    const a = this.appointment();
+    if (!a) return;
+    const result = await this.confirmModal.open({
+      title: 'Approve Appointment',
+      message: `Approve appointment ${a.appointmentId} ? The slot will be confirmed and the patient notified via the app.`,
+      confirmText: 'Approve',
+      cancelText: 'Cancel',
+      type: 'success',
+    });
+    if (!result.confirmed) return;
+    this.busyAction.set('approve');
+    this.appointmentService.approveAppointment(a.appointmentId).subscribe({
+      next: (res) => {
+        this.busyAction.set(null);
+        this.toast.success(
+          res.message || APP_MESSAGES.APPOINTMENT_REVIEW_APPROVED
+        );
+        this.load(a.appointmentId);
+      },
+      error: (err) => {
+        this.busyAction.set(null);
+        this.toast.error(
+          this.apiError.message(err, APP_MESSAGES.APPOINTMENT_REVIEW_APPROVE_FAILED),
+        );
+      }
+    });
+  }
+
+  async reject(): Promise<void> {
+    const a = this.appointment();
+    if (!a) return;
+    const result = await this.confirmModal.open({
+      title: 'Reject Appointment',
+      message: `Reject appointment ${a.appointmentId}? The patient will be notified via the app.`,
+      confirmText: 'Reject',
+      cancelText: 'Keep',
+      type: 'danger',
+      showInput: true,
+      inputLabel: 'Rejection Reason',
+      inputPlaceholder: 'Reason for rejecting this appointment'
+    });
+    if (!result.confirmed) return;
+
+    const reason = (result.inputValue ?? '').trim();
+    this.busyAction.set('reject');
+    this.appointmentService
+      .rejectAppointment(a.appointmentId, reason).subscribe({
+        next: (res) => {
+          this.busyAction.set(null);
+          this.toast.success(
+            res.message || APP_MESSAGES.APPOINTMENT_REVIEW_REJECTED
+          );
+          this.load(a.appointmentId);
+        },
+        error: (err) => {
+          this.busyAction.set(null);
+          this.toast.error(
+            this.apiError.message(err, APP_MESSAGES.APPOINTMENT_REVIEW_REJECT_FAILED),
+          );
+        },
+      });
   }
 
   async cancel(): Promise<void> {

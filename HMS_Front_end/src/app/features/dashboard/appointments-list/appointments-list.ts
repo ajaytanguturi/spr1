@@ -1,5 +1,5 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule, DatePipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DashboardLayoutComponent } from '../../../shared/ui/dashboard-layout/dashboard-layout';
@@ -16,8 +16,9 @@ import {
 import { todayIsoDate } from '../../../core/validators/app-validators';
 
 type DoctorTab = 'today' | 'upcoming' | 'completed';
+type BusyAction = 'cancel' | 'complete' | 'approve' | 'reject';
 
-// Role-aware appointments list (reception sees all; doctor sees own by tab)
+// Role-aware appointments list (reception sees all with PENDING_REVIEW; doctor sees own by tab)
 @Component({
   selector: 'app-appointments-list',
   standalone: true,
@@ -27,6 +28,7 @@ type DoctorTab = 'today' | 'upcoming' | 'completed';
     RouterLink,
     DashboardLayoutComponent,
     DatePipe,
+    TitleCasePipe,
   ],
   templateUrl: './appointments-list.html',
   styleUrl: './appointments-list.css',
@@ -43,9 +45,9 @@ export class AppointmentsListComponent implements OnInit {
   loading = signal(true);
   appointments = signal<Appointment[]>([]);
 
-  // Row action in flight; all row buttons disable while set
+  // Row action in flight
   busyId = signal<string | null>(null);
-  busyAction = signal<'cancel' | 'complete' | null>(null);
+  busyAction = signal<BusyAction | null>(null);
 
   statuses = APPOINTMENT_STATUSES;
   statusFilter = signal<string>('');
@@ -64,12 +66,10 @@ export class AppointmentsListComponent implements OnInit {
   isDoctor = computed(() => this.authService.getDesignation() === 'DOCTOR');
   hasReceptionAccess = computed(() => {
     const d = this.authService.getDesignation();
-    return (
-      d === 'OWNER' || d === 'ADMIN' || d === 'RECEPTIONIST'
-    );
+    return d === 'OWNER' || d === 'ADMIN' || d === 'RECEPTIONIST';
   });
 
-  // For the doctor view, slice the fetched list by tab
+  // For the doctor view, slice by selected tab
   visibleAppointments = computed<Appointment[]>(() => {
     if (!this.isDoctor()) {
       return this.appointments();
@@ -112,12 +112,10 @@ export class AppointmentsListComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Preselect a doctor tab from ?tab=today|upcoming|completed
     const tab = this.route.snapshot.queryParamMap.get('tab');
     if (tab === 'today' || tab === 'upcoming' || tab === 'completed') {
       this.doctorTab.set(tab);
     }
-    // Reception/admin status filter deep link via ?status=BOOKED etc
     const status = this.route.snapshot.queryParamMap.get('status');
     if (status) {
       this.statusFilter.set(status);
@@ -129,7 +127,6 @@ export class AppointmentsListComponent implements OnInit {
     this.loading.set(true);
 
     if (this.isDoctor()) {
-      // Pull a large window of the doctor's appointments and slice client-side
       this.appointmentService.getMyAppointments(1, 200).subscribe({
         next: (res) => {
           this.appointments.set(res.data.appointments || []);
@@ -166,7 +163,6 @@ export class AppointmentsListComponent implements OnInit {
     this.doctorTab.set(tab);
   }
 
-  // Completable only once the scheduled start has passed (mirrors the backend guard)
   isStartTimePassed(a: Appointment): boolean {
     const slotStart = (a.timeSlot || '').split('-')[0];
     const [h, m] = slotStart.split(':').map(Number);
@@ -213,6 +209,69 @@ export class AppointmentsListComponent implements OnInit {
     this.router.navigate(['/dashboard/appointments', a.appointmentId]);
   }
 
+  // ── Approve PENDING_REVIEW ──────────────────────────────────────────────────
+  async approve(a: Appointment, event: Event): Promise<void> {
+    event.stopPropagation();
+    const result = await this.confirmModal.open({
+      title: 'Approve Appointment',
+      message: `Approve appointment ${a.appointmentId}? The slot will be confirmed and the patient notified.`,
+      confirmText: 'Approve',
+      cancelText: 'Cancel',
+      type: 'success',
+    });
+    if (!result.confirmed) return;
+
+    this.busyId.set(a.appointmentId);
+    this.busyAction.set('approve');
+    this.appointmentService.approveAppointment(a.appointmentId).subscribe({
+      next: (res) => {
+        this.clearBusy();
+        this.toast.success(res.message || APP_MESSAGES.APPOINTMENT_REVIEW_APPROVED);
+        this.load();
+      },
+      error: (err) => {
+        this.clearBusy();
+        this.toast.error(
+          this.apiError.message(err, APP_MESSAGES.APPOINTMENT_REVIEW_APPROVE_FAILED),
+        );
+      },
+    });
+  }
+
+  // ── Reject PENDING_REVIEW ───────────────────────────────────────────────────
+  async reject(a: Appointment, event: Event): Promise<void> {
+    event.stopPropagation();
+    const result = await this.confirmModal.open({
+      title: 'Reject Appointment',
+      message: `Reject appointment ${a.appointmentId}? The patient will be notified.`,
+      confirmText: 'Reject',
+      cancelText: 'Keep',
+      type: 'danger',
+      showInput: true,
+      inputLabel: 'Rejection Reason',
+      inputPlaceholder: 'Reason for rejecting this appointment',
+    });
+    if (!result.confirmed) return;
+
+    const reason = (result.inputValue ?? '').trim();
+    this.busyId.set(a.appointmentId);
+    this.busyAction.set('reject');
+    this.appointmentService.rejectAppointment(a.appointmentId, reason).subscribe({
+      next: (res) => {
+        this.clearBusy();
+        this.toast.success(res.message || APP_MESSAGES.APPOINTMENT_REVIEW_REJECTED);
+        this.load();
+      },
+      error: (err) => {
+        this.clearBusy();
+        this.toast.error(
+          this.apiError.message(err, APP_MESSAGES.APPOINTMENT_REVIEW_REJECT_FAILED),
+        );
+      },
+    });
+  }
+
+  // ── Cancel BOOKED ───────────────────────────────────────────────────────────
   async cancel(a: Appointment, event: Event): Promise<void> {
     event.stopPropagation();
     const result = await this.confirmModal.open({
@@ -225,9 +284,8 @@ export class AppointmentsListComponent implements OnInit {
       inputLabel: 'Cancellation Reason',
       inputPlaceholder: 'Reason for cancelling this appointment',
     });
-    if (!result.confirmed) {
-      return;
-    }
+    if (!result.confirmed) return;
+
     const reason = (result.inputValue ?? '').trim();
     this.busyId.set(a.appointmentId);
     this.busyAction.set('cancel');
@@ -239,11 +297,14 @@ export class AppointmentsListComponent implements OnInit {
       },
       error: (err) => {
         this.clearBusy();
-        this.toast.error(this.apiError.message(err, APP_MESSAGES.APPOINTMENT_CANCEL_FAILED));
+        this.toast.error(
+          this.apiError.message(err, APP_MESSAGES.APPOINTMENT_CANCEL_FAILED),
+        );
       },
     });
   }
 
+  // ── Complete BOOKED ─────────────────────────────────────────────────────────
   async complete(a: Appointment, event: Event): Promise<void> {
     event.stopPropagation();
     const result = await this.confirmModal.open({
@@ -253,9 +314,8 @@ export class AppointmentsListComponent implements OnInit {
       cancelText: 'Cancel',
       type: 'success',
     });
-    if (!result.confirmed) {
-      return;
-    }
+    if (!result.confirmed) return;
+
     this.busyId.set(a.appointmentId);
     this.busyAction.set('complete');
     this.appointmentService.completeAppointment(a.appointmentId).subscribe({
@@ -266,7 +326,9 @@ export class AppointmentsListComponent implements OnInit {
       },
       error: (err) => {
         this.clearBusy();
-        this.toast.error(this.apiError.message(err, APP_MESSAGES.APPOINTMENT_COMPLETE_FAILED));
+        this.toast.error(
+          this.apiError.message(err, APP_MESSAGES.APPOINTMENT_COMPLETE_FAILED),
+        );
       },
     });
   }

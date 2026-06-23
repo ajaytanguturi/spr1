@@ -26,26 +26,49 @@ const appointmentSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ["BOOKED", "CANCELED", "COMPLETED"],
+        enum: ["PENDING_REVIEW", "BOOKED", "CANCELED", "COMPLETED", "REJECTED"],
         default: "BOOKED"
     },
+    bookingSource: {
+        type: String,
+        enum: ["PATIENT", "STAFF"],
+        default: "STAFF",
+    },
     cancellationReason: {
-        type: String
+        type: String,
+        default: null
+    },
+    rejectionReason: {
+        type: String,
+        default: null,
     },
     createdByEmployeeId: {
         type: String,
         ref: "Employee"
-    }
-});
+    },
+    approvedByEmployeeId: {
+        type: String,
+        ref: "Employee",
+    },
+    approvedAt: {
+        type: Date
+    },
+}, {
+    timestamps: {
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+    },
+}
+);
 
 appointmentSchema.pre('save', async function () {
     if (this.isNew) {
-            const counter = await Counter.findOneAndUpdate(
-                { name: 'appointments' },
-                { $inc: { seq: 1 } }, 
-                { new: true, upsert: true } 
-            );
-            this.appointmentId = `APT-${String(counter.seq).padStart(6, '0')}`; 
+        const counter = await Counter.findOneAndUpdate(
+            { name: 'appointments' },
+            { $inc: { seq: 1 } },
+            { new: true, upsert: true }
+        );
+        this.appointmentId = `APT-${String(counter.seq).padStart(6, '0')}`;
     }
 });
 

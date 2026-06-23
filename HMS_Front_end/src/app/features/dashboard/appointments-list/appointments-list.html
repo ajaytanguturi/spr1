@@ -4,28 +4,17 @@
     <!-- Doctor view: tabs -->
     @if (isDoctor()) {
     <div class="tabs">
-      <button
-        type="button"
-        class="tab-btn"
-        [class.active]="doctorTab() === 'today'"
-        (click)="switchTab('today')">
+      <button type="button" class="tab-btn" [class.active]="doctorTab() === 'today'" (click)="switchTab('today')">
         Today
         <span class="tab-count">{{ doctorTabCount('today') }}</span>
       </button>
 
-      <button
-        type="button"
-        class="tab-btn"
-        [class.active]="doctorTab() === 'upcoming'"
-        (click)="switchTab('upcoming')">
+      <button type="button" class="tab-btn" [class.active]="doctorTab() === 'upcoming'" (click)="switchTab('upcoming')">
         Upcoming
         <span class="tab-count">{{ doctorTabCount('upcoming') }}</span>
       </button>
 
-      <button
-        type="button"
-        class="tab-btn"
-        [class.active]="doctorTab() === 'completed'"
+      <button type="button" class="tab-btn" [class.active]="doctorTab() === 'completed'"
         (click)="switchTab('completed')">
         Completed
         <span class="tab-count">{{ doctorTabCount('completed') }}</span>
@@ -33,59 +22,40 @@
     </div>
     }
 
-    <!-- Reception view: filters + book button -->
+    <!-- Reception / admin view: filters + book button -->
     @if (hasReceptionAccess()) {
     <div class="toolbar">
       <div class="toolbar-filters">
 
-        <label for="statusFilter">Status Filter</label>
+        <label for="statusFilter">Status</label>
 
-        <select
-          id="statusFilter"
-          class="form-select toolbar-filter"
-          [value]="statusFilter()"
+        <select id="statusFilter" class="form-select toolbar-filter" [value]="statusFilter()"
           (change)="onStatusChange($any($event.target).value)">
-
           <option value="">All Statuses</option>
-
           @for (status of statuses; track status) {
-          <option [value]="status">
-            {{ status }}
-          </option>
+          <option [value]="status">{{ status | titlecase }}</option>
           }
-
         </select>
 
-        <input
-          type="date"
-          class="form-input toolbar-filter"
-          aria-label="Date Filter"
-          [value]="dateFilter()"
+        <input type="date" class="form-input toolbar-filter" aria-label="Date filter" [value]="dateFilter()"
           (change)="onDateChange($any($event.target).value)" />
 
         @if (dateFilter()) {
-        <button
-          type="button"
-          class="btn btn-secondary btn-sm"
-          (click)="clearDate()">
+        <button type="button" class="btn btn-secondary btn-sm" (click)="clearDate()">
           Clear date
         </button>
         }
 
       </div>
 
-      <a
-        routerLink="/dashboard/appointments/book"
-        class="btn btn-primary">
+      <a routerLink="/dashboard/appointments/book" class="btn btn-primary">
         + Book Appointment
       </a>
     </div>
     }
 
     @if (loading()) {
-    <div class="loading-box">
-      Loading appointments…
-    </div>
+    <div class="loading-box">Loading appointments…</div>
     } @else if (visibleAppointments().length === 0) {
     <div class="empty-box">
       <p>No appointments to show.</p>
@@ -108,12 +78,7 @@
 
         <tbody>
           @for (a of visibleAppointments(); track trackById($index, a)) {
-          <tr
-            class="clickable"
-            tabindex="0"
-            (click)="open(a)"
-            (keydown.enter)="open(a)"
-            (keydown.space)="open(a)">
+          <tr class="clickable" tabindex="0" (click)="open(a)" (keydown.enter)="open(a)" (keydown.space)="open(a)">
 
             <td>{{ a.appointmentId }}</td>
             <td>{{ a.patient?.name || a.patientId }}</td>
@@ -123,39 +88,58 @@
 
             <td>
               <span class="status status--{{ a.status.toLowerCase() }}">
-                {{ a.status }}
+                {{ a.status === 'PENDING_REVIEW' ? 'Pending Review' : a.status }}
               </span>
             </td>
 
             <td class="row-actions">
-              @if (hasReceptionAccess() && a.status === 'BOOKED') {
-              <button
-                type="button"
-                class="btn btn-sm btn-danger-outline"
-                [disabled]="busyId() !== null"
-                (click)="cancel(a, $event)">
-                @if (busyId() === a.appointmentId && busyAction() === 'cancel') {
-                <span>Cancelling…</span>
-                } @else {
-                <span>Cancel</span>
+              <div class="gap-sm">
+                <!-- Receptionist: approve / reject PENDING_REVIEW -->
+                @if (hasReceptionAccess() && a.status === 'PENDING_REVIEW') {
+                <button type="button" class="btn btn-sm btn-success-outline" [disabled]="busyId() !== null"
+                  (click)="approve(a, $event)">
+                  @if (busyId() === a.appointmentId && busyAction() === 'approve') {
+                  <span>Approving…</span>
+                  } @else {
+                  <span>Approve</span>
+                  }
+                </button>
+                <button type="button" class="btn btn-sm btn-danger-outline" [disabled]="busyId() !== null"
+                  (click)="reject(a, $event)">
+                  @if (busyId() === a.appointmentId && busyAction() === 'reject') {
+                  <span>Rejecting…</span>
+                  } @else {
+                  <span>Reject</span>
+                  }
+                </button>
                 }
-              </button>
-              }
 
-              @if (isDoctor() && a.status === 'BOOKED') {
-              <button
-                type="button"
-                class="btn btn-sm btn-success-outline"
-                [disabled]="!isStartTimePassed(a) || busyId() !== null"
-                [title]="!isStartTimePassed(a) ? 'Available once the appointment starts' : ''"
-                (click)="complete(a, $event)">
-                @if (busyId() === a.appointmentId && busyAction() === 'complete') {
-                <span>Completing…</span>
-                } @else {
-                <span>Complete</span>
+                <!-- Receptionist: cancel BOOKED -->
+                @if (hasReceptionAccess() && a.status === 'BOOKED') {
+                <button type="button" class="btn btn-sm btn-danger-outline" [disabled]="busyId() !== null"
+                  (click)="cancel(a, $event)">
+                  @if (busyId() === a.appointmentId && busyAction() === 'cancel') {
+                  <span>Cancelling…</span>
+                  } @else {
+                  <span>Cancel</span>
+                  }
+                </button>
                 }
-              </button>
-              }
+
+                <!-- Doctor: complete BOOKED -->
+                @if (isDoctor() && a.status === 'BOOKED') {
+                <button type="button" class="btn btn-sm btn-success-outline"
+                  [disabled]="!isStartTimePassed(a) || busyId() !== null"
+                  [title]="!isStartTimePassed(a) ? 'Available once the appointment starts' : ''"
+                  (click)="complete(a, $event)">
+                  @if (busyId() === a.appointmentId && busyAction() === 'complete') {
+                  <span>Completing…</span>
+                  } @else {
+                  <span>Complete</span>
+                  }
+                </button>
+                }
+              </div>
             </td>
 
           </tr>
@@ -166,11 +150,7 @@
 
     @if (hasReceptionAccess() && totalPages() > 1) {
     <div class="pagination">
-      <button
-        type="button"
-        class="btn btn-secondary btn-sm"
-        (click)="prevPage()"
-        [disabled]="page() === 1">
+      <button type="button" class="btn btn-secondary btn-sm" (click)="prevPage()" [disabled]="page() === 1">
         ← Previous
       </button>
 
@@ -178,11 +158,7 @@
         Page {{ page() }} of {{ totalPages() }} · {{ total() }} total
       </span>
 
-      <button
-        type="button"
-        class="btn btn-secondary btn-sm"
-        (click)="nextPage()"
-        [disabled]="page() === totalPages()">
+      <button type="button" class="btn btn-secondary btn-sm" (click)="nextPage()" [disabled]="page() === totalPages()">
         Next →
       </button>
     </div>

@@ -152,6 +152,61 @@ const appointmentScheduled = ({
   `),
 });
 
+const appointmentPendingReview = ({
+  patientName,
+  doctorName,
+  appointmentDate,
+  timeSlot,
+}) => ({
+  subject: "Appointment Request Received",
+  html: wrap(`
+    <h2>Appointment Request Received</h2>
+    <p>Thank you. Your appointment request has been received and is awaiting review by our staff.</p>
+    <p><strong>Patient Name:</strong> ${patientName}</p>
+    <p><strong>Doctor Name:</strong> ${doctorName}</p>
+    <p><strong>Requested Date:</strong> ${formatDate(appointmentDate)}</p>
+    <p><strong>Time Slot:</strong> ${timeSlot}</p>
+    <p>You'll receive another email once your appointment has been reviewed.</p>
+  `),
+});
+
+const appointmentApproved = ({
+  patientName,
+  doctorName,
+  appointmentDate,
+  timeSlot,
+}) => ({
+  subject: "Appointment Approved",
+  html: wrap(`
+    <h2>Appointment Approved</h2>
+    <p>Good news! Your appointment request has been reviewed and approved.</p>
+    <p><strong>Patient Name:</strong> ${patientName}</p>
+    <p><strong>Doctor Name:</strong> ${doctorName}</p>
+    <p><strong>Appointment Date:</strong> ${formatDate(appointmentDate)}</p>
+    <p><strong>Time Slot:</strong> ${timeSlot}</p>
+  `),
+});
+
+const appointmentRejected = ({
+  patientName,
+  doctorName,
+  appointmentDate,
+  timeSlot,
+  rejectionReason,
+}) => ({
+  subject: "Appointment Request Declined",
+  html: wrap(`
+    <h2>Appointment Request Declined</h2>
+    <p>We're sorry, your appointment request could not be approved.</p>
+    <p><strong>Patient Name:</strong> ${patientName}</p>
+    <p><strong>Doctor Name:</strong> ${doctorName}</p>
+    <p><strong>Requested Date:</strong> ${formatDate(appointmentDate)}</p>
+    <p><strong>Time Slot:</strong> ${timeSlot}</p>
+    ${rejectionReason ? `<p><strong>Reason:</strong> ${rejectionReason}</p>` : ""}
+    <p>Please contact us or submit a new request for a different slot.</p>
+  `),
+});
+
 const appointmentUpdated = ({
   patientName,
   doctorName,
@@ -228,6 +283,8 @@ module.exports = {
   profileChangeApproved,
   profileChangeRejected,
   appointmentScheduled,
+  appointmentPendingReview,
+  appointmentRejected,
   appointmentUpdated,
   appointmentCanceled,
   passwordReset,

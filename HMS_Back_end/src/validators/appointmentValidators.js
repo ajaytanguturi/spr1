@@ -46,9 +46,27 @@ const cancelAppointmentValidation = [
         .withMessage("Cancellation reason is required")
 ];
 
+const approveAppointmentValidation = [
+    param("appointmentId")
+        .notEmpty()
+        .withMessage("Appointment id is required")
+];
+
+const rejectAppointmentValidation = [
+    param("appointmentId")
+        .notEmpty()
+        .withMessage("Appointment id is required"),
+
+    body("rejectionReason")
+        .trim()
+        .notEmpty()
+        .withMessage("Rejection reason is required")
+];
 module.exports = {
     createAppointmentValidation,
     bookedSlotsValidation,
     appointmentIdValidation,
-    cancelAppointmentValidation
+    cancelAppointmentValidation,
+    approveAppointmentValidation,
+    rejectAppointmentValidation
 };

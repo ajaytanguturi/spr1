@@ -4,43 +4,24 @@ const validate = require("../middlewares/validate");
 const auth = require("../middlewares/authMiddleware");
 const authorizeDesignation = require("../middlewares/authorizeDesignations");
 const controller = require("../controllers/patientController");
-const {
-    createPatientValidation,
-    updatePatientValidation,
-    uhidValidation
-} = require("../validators/patientValidators");
+const { createPatientValidation, updatePatientValidation, uhidValidation } = require("../validators/patientValidators");
+const authorizeRoles = require("../middlewares/authorizeRolesMiddleware");
 
-router.use(auth, authorizeDesignation("OWNER", "ADMIN", "RECEPTIONIST"));
+router.use(auth);
 
-router.post(
-    "/create-patient",
-    createPatientValidation,
-    validate,
-    controller.createPatient
-);
+const FULL_ACCESS = authorizeDesignation("OWNER", "ADMIN", "RECEPTIONIST");
+const READ_ONLY = authorizeDesignation("OWNER", "ADMIN", "RECEPTIONIST", "DOCTOR");
 
-router.get(
-    "/search",
-    controller.searchPatients
-);
+router.post("/create-patient", FULL_ACCESS, createPatientValidation, validate, controller.createPatient);
 
-router.get(
-    "/",
-    controller.getPatients
-);
+router.get("/search", READ_ONLY, controller.searchPatients);
 
-router.get(
-    "/:UHID",
-    uhidValidation,
-    validate,
-    controller.getPatientById
-);
+router.get("/", READ_ONLY, controller.getPatients);
 
-router.put(
-    "/:UHID",
-    updatePatientValidation,
-    validate,
-    controller.updatePatient
-);
+router.get("/:UHID", READ_ONLY, uhidValidation, validate, controller.getPatientById);
+
+router.put("/:UHID", FULL_ACCESS, updatePatientValidation, validate, controller.updatePatient);
+
+router.delete("/:UHID", authorizeRoles("OWNER", "ADMIN"), uhidValidation, validate, controller.deletePatient);
 
 module.exports = router;

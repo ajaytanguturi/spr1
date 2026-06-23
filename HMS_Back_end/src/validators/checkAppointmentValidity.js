@@ -10,12 +10,15 @@ const withExclusion = (filter, excludeAppointmentId) => {
   return { ...filter, appointmentId: { $ne: excludeAppointmentId } };
 };
 
+const ACTIVE_STATUSES = { $in: ["CANCELED", "REJECTED"] };
+
 const checkAppointmentValidity = async ({
   patientId,
   doctorId,
   appointmentDate,
   timeSlot,
   excludeAppointmentId,
+  allowSameDay = true
 }) => {
 
   const patient = await Patient.findOne({
@@ -36,6 +39,9 @@ const checkAppointmentValidity = async ({
 
   if (apptDay.getTime() < todayStart.getTime()) {
     throw new AppError(STATUS.CONFLICT, MESSAGES.APPOINTMENT.PAST_DATE);
+  }
+  if (!allowSameDay && apptDay.getTime() === todayStart.getTime()) {
+    throw new AppError(STATUS.CONFLICT, MESSAGES.APPOINTMENT.PATIENT_SAME_DAY_NOT_ALLOWED);
   }
   const maxBookingDay = new Date(todayStart);
   maxBookingDay.setMonth(maxBookingDay.getMonth() + 6);
@@ -59,9 +65,6 @@ const checkAppointmentValidity = async ({
   }
 
   if (doctor.joiningDate) {
-    const apptDay = new Date(appointmentDate);
-    apptDay.setHours(0, 0, 0, 0);
-
     const joinDay = new Date(doctor.joiningDate);
     joinDay.setHours(0, 0, 0, 0);
 
@@ -102,7 +105,7 @@ const checkAppointmentValidity = async ({
 
   const patientAppointment = await Appointment.findOne(
     withExclusion(
-      { patientId, appointmentDate, timeSlot, status: { $ne: "CANCELED" } },
+      { patientId, appointmentDate, timeSlot, status: ACTIVE_STATUSES },
       excludeAppointmentId,
     ),
   );

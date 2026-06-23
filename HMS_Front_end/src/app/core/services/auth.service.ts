@@ -4,11 +4,7 @@ import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { ApiMessage } from '../models/api-response.model';
-import {
-  LoginResponse,
-  MeResponse,
-  User,
-} from '../models/user.model';
+import { LoginResponse, MeResponse, User, } from '../models/user.model';
 import { Designation } from '../models/employee.model';
 import { FormDraftService } from './form-draft.service';
 import { NodeService } from './node.service';
@@ -16,10 +12,7 @@ import { NodeService } from './node.service';
 const TOKEN_KEY = 'hms_token';
 const USER_KEY = 'hms_user';
 
-const SUPERUSER_DESIGNATIONS = new Set<Designation>([
-  'OWNER',
-  'ADMIN',
-]);
+const SUPERUSER_DESIGNATIONS = new Set<Designation>(['OWNER', 'ADMIN',]);
 
 @Injectable({
   providedIn: 'root',
@@ -29,6 +22,7 @@ export class AuthService {
   private readonly router = inject(Router);
   private readonly formDraft = inject(FormDraftService);
   private readonly nodeService = inject(NodeService);
+  private accessToken: string | null = null;
 
   private readonly currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
@@ -104,8 +98,8 @@ export class AuthService {
     }
 
     this.http.post(`${this.apiUrl}/logout`, {}).subscribe({
-      next: () => {},
-      error: () => {},
+      next: () => { },
+      error: () => { },
     });
     this.clearSession();
     if (navigate) {
@@ -125,7 +119,7 @@ export class AuthService {
   }
 
   private setSession(token: string, user: User): void {
-    localStorage.setItem(TOKEN_KEY, token);
+    this.accessToken = token;
     this.persistUser(user);
   }
 
@@ -136,7 +130,7 @@ export class AuthService {
   }
 
   private clearSession(): void {
-    localStorage.removeItem(TOKEN_KEY);
+    this.accessToken = null;
     localStorage.removeItem(USER_KEY);
     this.formDraft.clearAll();
     this.nodeService.clearCache();
@@ -159,11 +153,11 @@ export class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!this.getToken();
+    return !!this.accessToken;
   }
 
   getToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY);
+    return this.accessToken;
   }
 
   getCurrentUser(): User | null {

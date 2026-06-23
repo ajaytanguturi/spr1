@@ -1,14 +1,8 @@
-import {
-  AbstractControl,
-  ValidationErrors,
-  ValidatorFn,
-  FormGroup,
-} from '@angular/forms';
+import { AbstractControl, ValidationErrors, ValidatorFn, FormGroup, } from '@angular/forms';
 
 export const PHONE_PATTERN = /^(\+\d{1,3} )?\d{10}$/;
 
-export const PASSWORD_PATTERN =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
+export const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 
 export const NAME_PATTERN = /^\p{L}[\p{L} .'-]*$/u;
 export const NAME_MIN_LENGTH = 2;
@@ -16,8 +10,7 @@ export const NAME_MAX_LENGTH = 50;
 
 export const MED_REG_PATTERN = /^MED-[0-9-]+$/;
 
-export const TIME_SLOT_PATTERN =
-  /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/;
+export const TIME_SLOT_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/;
 
 function startOfToday(): Date {
   const d = new Date();
@@ -56,7 +49,7 @@ export const noFutureDate: ValidatorFn = (
 ): ValidationErrors | null => {
   const date = toDateOnly(control.value);
   if (!date) {
-    return null; 
+    return null;
   }
   return date.getTime() > startOfToday().getTime()
     ? { futureDate: true }

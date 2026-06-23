@@ -1,5 +1,5 @@
 const Appointment = require("../models/Appointments");
-const STATUS_PRIORITY = ["BOOKED", "COMPLETED", "CANCELED"];
+const STATUS_PRIORITY = ["PENDING_REVIEW","BOOKED", "COMPLETED", "CANCELED", "REJECTED"];
 
 const listAppointments = (filter, skip, limit) =>
     Appointment.aggregate([
