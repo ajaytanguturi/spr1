@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import { useConfirmModal } from "./confirmModal";
 
+// Navigation guard mirroring the Angular unsavedChangesGuard
 interface NavGuardState {
   isDirty: boolean;
   setDirty: (dirty: boolean) => void;
+  /** Resolves true when navigation may proceed, false to stay. */
   confirmLeave: () => Promise<boolean>;
 }
 

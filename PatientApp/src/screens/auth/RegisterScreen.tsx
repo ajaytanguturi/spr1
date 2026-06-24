@@ -1,4 +1,5 @@
 import { Textbox } from "@/components/common/textbox";
+import { RequiredMark } from "@/components/common/RequiredMark";
 import DatePickerSheet from "@/components/common/DatePickerSheet";
 import { registerPatient } from "@/services/authService";
 import { useIsFocused, useRouter } from "expo-router";
@@ -83,6 +84,8 @@ const RegisterScreen = () => {
   const router = useRouter();
   const guarded = useGuardedRouter();
   const isFocused = useIsFocused();
+
+  // Dirty when any field holds input; guards accidental navigation away.
   const isDirty =
     !!(name || dob || phone || email || password || confirmPassword ||
       houseName || houseNumber || city || postCode ||
@@ -188,6 +191,7 @@ const RegisterScreen = () => {
 
           <Textbox
             label="Full name"
+            required
             placeholder="Arjun Sharma"
             value={name}
             icon="person-outline"
@@ -199,6 +203,7 @@ const RegisterScreen = () => {
           {/* DOB — tapping opens native date picker */}
           <Textbox
             label="Date of birth"
+            required
             placeholder="Select date of birth"
             value={dob}
             icon="calendar-outline"
@@ -210,6 +215,7 @@ const RegisterScreen = () => {
           {/* Phone — full width so all digits stay visible */}
           <Textbox
             label="Phone number"
+            required
             placeholder="9876543210"
             value={phone}
             icon="call-outline"
@@ -219,7 +225,7 @@ const RegisterScreen = () => {
             error={err("phone")}
           />
 
-          <Text style={styles.fieldLabel}>Gender</Text>
+          <Text style={styles.fieldLabel}>Gender<RequiredMark /></Text>
           <View style={styles.genderRow}>
             {(["Male", "Female"] as Gender[]).map((g) => (
               <TouchableOpacity
@@ -243,6 +249,7 @@ const RegisterScreen = () => {
 
           <Textbox
             label="Email"
+            required
             placeholder="arjun@email.com"
             value={email}
             icon="mail-outline"
@@ -255,6 +262,7 @@ const RegisterScreen = () => {
 
           <Textbox
             label="Password"
+            required
             placeholder="Create a password"
             value={password}
             icon="lock-closed-outline"
@@ -266,6 +274,7 @@ const RegisterScreen = () => {
 
           <Textbox
             label="Confirm password"
+            required
             placeholder="Re-enter your password"
             value={confirmPassword}
             icon="lock-closed-outline"
@@ -281,6 +290,7 @@ const RegisterScreen = () => {
             <View style={styles.halfField}>
               <Textbox
                 label="House name"
+                required
                 placeholder="Maple Villa"
                 value={houseName}
                 icon="home-outline"
@@ -292,6 +302,7 @@ const RegisterScreen = () => {
             <View style={styles.halfField}>
               <Textbox
                 label="House number"
+                required
                 placeholder="12B"
                 value={houseNumber}
                 icon="business-outline"
@@ -306,6 +317,7 @@ const RegisterScreen = () => {
             <View style={styles.halfField}>
               <Textbox
                 label="City"
+                required
                 placeholder="Kochi"
                 value={city}
                 icon="location-outline"
@@ -317,6 +329,7 @@ const RegisterScreen = () => {
             <View style={styles.halfField}>
               <Textbox
                 label="Post code"
+                required
                 placeholder="682001"
                 value={postCode}
                 icon="navigate-outline"
@@ -331,6 +344,7 @@ const RegisterScreen = () => {
 
           <Textbox
             label="Contact name"
+            required
             placeholder="Jane Sharma"
             value={contactName}
             icon="person-outline"
@@ -341,6 +355,7 @@ const RegisterScreen = () => {
 
           <Textbox
             label="Relationship"
+            required
             placeholder="Sister"
             value={relationship}
             icon="people-outline"
@@ -352,6 +367,7 @@ const RegisterScreen = () => {
           {/* Contact number — full width so all digits stay visible */}
           <Textbox
             label="Contact number"
+            required
             placeholder="9876543210"
             value={contactNumber}
             icon="call-outline"

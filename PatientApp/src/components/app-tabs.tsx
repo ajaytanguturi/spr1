@@ -54,6 +54,13 @@ const APP_TABS = [
     href: "/explore",
   },
   {
+    name: "medical-records",
+    label: "Records",
+    icon: "document-text-outline" as const,
+    activeIcon: "document-text" as const,
+    href: "/medical-records",
+  },
+  {
     name: "profile",
     label: "Profile",
     icon: "person-outline" as const,
@@ -62,7 +69,13 @@ const APP_TABS = [
   },
 ];
 
-const PROTECTED_PREFIXES = ["/profile", "/explore"];
+const PROTECTED_PREFIXES = [
+  "/profile",
+  "/explore",
+  "/medical-records",
+  "/medical-record",
+  "/appointment-record",
+];
 
 export default function AppTabs() {
   const { isLoggedIn, checkLoginStatus } = useAuthStore();
@@ -74,6 +87,7 @@ export default function AppTabs() {
     checkLoginStatus();
   }, [checkLoginStatus]);
 
+  // Redirect to login on logout from a protected route; raw router so the unsaved-changes guard never blocks it
   useEffect(() => {
     const onProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
     if (!isLoggedIn && onProtected) {

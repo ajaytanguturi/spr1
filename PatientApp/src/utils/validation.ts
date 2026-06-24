@@ -1,3 +1,4 @@
+// Linear-time email pattern; disjoint classes around the dot prevent backtracking blowup
 const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 const PHONE_REGEX = /^(\+\d{1,3} )?\d{10}$/;
 const NAME_REGEX = /^[a-zA-Z]+([ '-][a-zA-Z]+)*$/;

@@ -8,6 +8,7 @@ const TEAL = "#2e9466";
 type AppointmentCardProps = Readonly<{
   appointment: Appointment;
   statusColor?: string;
+  // Extra rows (action buttons, cancellation reason) rendered below the summary
   children?: ReactNode;
 }>;
 

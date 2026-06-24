@@ -1,4 +1,6 @@
 import { create } from "zustand";
+
+// Service-driven confirm dialog awaited via useConfirmModal.open, rendered by ConfirmModal
 export type ConfirmModalType = "danger" | "warning" | "success" | "info";
 
 export interface ConfirmModalConfig {
@@ -12,6 +14,7 @@ export interface ConfirmModalConfig {
 interface ConfirmModalState {
   isOpen: boolean;
   config: ConfirmModalConfig | null;
+  /** Internal: resolves the promise returned by `open`. */
   resolve: ((confirmed: boolean) => void) | null;
   open: (config: ConfirmModalConfig) => Promise<boolean>;
   confirm: () => void;

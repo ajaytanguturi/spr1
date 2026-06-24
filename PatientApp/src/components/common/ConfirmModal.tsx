@@ -9,6 +9,7 @@ const ACCENT: Record<ConfirmModalType, { color: string; bg: string; icon: any }>
   info: { color: "#2563eb", bg: "#eff6ff", icon: "information-circle" },
 };
 
+// Shared confirm dialog mounted once at the app root and driven by useConfirmModal
 export default function ConfirmModal() {
   const { isOpen, config, confirm, cancel } = useConfirmModal();
 

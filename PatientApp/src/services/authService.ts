@@ -1,7 +1,12 @@
 import { apiFetch } from "./apiClient";
 import type { Patient, RegisterPayload } from "./types";
 
-type LoginData = { token: string; patient: Patient };
+// Payload types describe the data field of the envelope that apiFetch resolves with
+type LoginData = {
+  accessToken: string;
+  refreshToken: string;
+  patient: Patient;
+};
 type RegisterData = { patient: Patient };
 
 export function registerPatient(payload: RegisterPayload) {
@@ -16,6 +21,15 @@ export function loginPatient(email: string, password: string) {
   return apiFetch<LoginData>("/patient/auth/login", {
     method: "POST",
     body: { email, password },
+    auth: false,
+  });
+}
+
+// Revoke the refresh token server-side; sent in the body since mobile has no cookie
+export function logoutPatient(refreshToken: string) {
+  return apiFetch<void>("/patient/auth/logout", {
+    method: "POST",
+    body: { refreshToken },
     auth: false,
   });
 }

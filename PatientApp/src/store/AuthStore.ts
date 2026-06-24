@@ -1,40 +1,43 @@
-import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
-
-const TOKEN_KEY = 'jwt';
-const LOGGED_IN_KEY = 'isLoggedIn';
-
-export async function saveSecure(key: string, value: string) {
-  await SecureStore.setItemAsync(key, value);
-}
-export async function getSecure(key: string) {
-  return await SecureStore.getItemAsync(key);
-}
-export async function deleteSecure(key: string) {
-  await SecureStore.deleteItemAsync(key);
-}
+import { logoutPatient } from '../services/authService';
+import {
+  clearTokens,
+  getRefreshToken,
+  setTokens,
+} from '../services/tokenStore';
 
 interface AuthState {
   isLoggedIn: boolean;
-  login: (token: string) => Promise<void>;
+  login: (accessToken: string, refreshToken: string) => Promise<void>;
   logout: () => Promise<void>;
+  // Flip state only; used when the session already died server-side (refresh failed)
+  setLoggedOut: () => void;
   checkLoginStatus: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   isLoggedIn: false,
-  login: async (token: string) => {
-    await saveSecure(TOKEN_KEY, token);
-    await saveSecure(LOGGED_IN_KEY, 'true');
+  login: async (accessToken: string, refreshToken: string) => {
+    await setTokens(accessToken, refreshToken);
     set({ isLoggedIn: true });
   },
   logout: async () => {
-    await deleteSecure(TOKEN_KEY);
-    await saveSecure(LOGGED_IN_KEY, 'false');
+    // Best-effort server revoke of the refresh token, then clear locally
+    const refreshToken = await getRefreshToken();
+    if (refreshToken) {
+      try {
+        await logoutPatient(refreshToken);
+      } catch {
+        // Network/already-revoked: clear locally regardless
+      }
+    }
+    await clearTokens();
     set({ isLoggedIn: false });
   },
+  setLoggedOut: () => set({ isLoggedIn: false }),
   checkLoginStatus: async () => {
-    const token = await getSecure(TOKEN_KEY);
-    set({ isLoggedIn: Boolean(token) });
+    // A stored refresh token means the session can still be renewed
+    const refreshToken = await getRefreshToken();
+    set({ isLoggedIn: Boolean(refreshToken) });
   },
 }));

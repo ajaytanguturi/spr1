@@ -1,6 +1,7 @@
 import { apiFetch } from "./apiClient";
 import type { Patient, ProfileUpdatePayload } from "./types";
 
+// Payload type describes the `data` field of the API envelope.
 type ProfileData = { patient: Patient };
 
 export function getMyProfile() {

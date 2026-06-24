@@ -15,7 +15,8 @@ import { formatDate, isRealDate } from "@/utils/format";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BottomTabInset, KeyboardScrollPadding } from "@/constants/theme";
-import DatePickerSheet from "@/components/common/DatePickerSheet";
+import AvailabilityCalendar from "@/components/common/AvailabilityCalendar";
+import { RequiredMark } from "@/components/common/RequiredMark";
 import { useGuardedRouter } from "@/hooks/useGuardedRouter";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import {
@@ -38,6 +39,7 @@ const WEEKDAYS = [
   "SATURDAY",
 ] as const;
 
+// Slot length in minutes — kept consistent with the Angular web app.
 const SLOT_MINUTES = 30;
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -65,6 +67,7 @@ function weekdayOf(dateStr: string): string | null {
   return WEEKDAYS[date.getDay()];
 }
 
+// Booking window: today through 6 months ahead.
 const MIN_DATE = new Date();
 MIN_DATE.setHours(0, 0, 0, 0);
 
@@ -83,6 +86,23 @@ function getDateError(date: string): string | undefined {
   if (!isRealDate(date)) return "Enter a valid calendar date";
   if (isBeyondMax(date)) return "Appointments can only be booked up to 6 months in advance";
   return undefined;
+}
+
+// Per-field validation messages (undefined = valid)
+function getFormErrors(
+  doctorCode: string,
+  date: string,
+  availableSlots: readonly string[],
+  selectedSlot: string,
+) {
+  return {
+    doctor: doctorCode ? undefined : "Please select a doctor",
+    date: getDateError(date),
+    timeSlot:
+      availableSlots.length > 0 && !selectedSlot
+        ? "Please select a time slot"
+        : undefined,
+  };
 }
 
 function doctorLabel(doctor: Doctor | undefined): string {
@@ -104,6 +124,7 @@ function submitLabel(submitting: boolean, mode: "book" | "edit"): string {
 
 type FormSelection = Readonly<{ doctorCode: string; date: string; selectedSlot: string }>;
 
+// Book mode is dirty on any input; edit mode only when moved off the initial selection
 function isFormDirty(mode: "book" | "edit", current: FormSelection, initial: FormSelection): boolean {
   if (mode === "book") {
     return Boolean(current.doctorCode || current.date || current.selectedSlot);
@@ -115,6 +136,7 @@ function isFormDirty(mode: "book" | "edit", current: FormSelection, initial: For
   );
 }
 
+// Loads the active doctor list once on mount
 function useDoctors() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
@@ -135,6 +157,7 @@ function useDoctors() {
   return { doctors, loadingDoctors };
 }
 
+// Tracks booked slots for the selected doctor/date combination
 function useBookedSlots(doctorCode: string, date: string) {
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
 
@@ -179,6 +202,7 @@ function DoctorDropdown({
 }: DoctorDropdownProps) {
   const [search, setSearch] = useState("");
 
+  // Filter doctors by name, specialization, or department for the dropdown search.
   const filteredDoctors = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return doctors;
@@ -198,7 +222,7 @@ function DoctorDropdown({
 
   return (
     <>
-      <Text style={styles.fieldLabel}>Doctor</Text>
+      <Text style={styles.fieldLabel}>Doctor<RequiredMark /></Text>
       <TouchableOpacity
         style={[styles.dropdownTrigger, error ? styles.dropdownTriggerError : undefined]}
         onPress={onToggle}
@@ -313,7 +337,9 @@ export type AppointmentFormProps = {
   initialDoctorCode?: string;
   initialDate?: string;
   initialTimeSlot?: string;
+  // Embedded mode: host screen provides the safe area inset and header
   embedded?: boolean;
+  // Called after a successful submit instead of router.replace("/explore").
   onDone?: () => void;
 };
 
@@ -334,7 +360,6 @@ export default function AppointmentForm({
   const [doctorCode, setDoctorCode] = useState(initialDoctorCode ?? "");
   const [date, setDate] = useState(initialDate ?? "");
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [datePickerDate, setDatePickerDate] = useState<Date>(() => new Date());
   const [selectedSlot, setSelectedSlot] = useState(initialTimeSlot ?? "");
   const bookedSlots = useBookedSlots(doctorCode, date);
   const [submitting, setSubmitting] = useState(false);
@@ -343,21 +368,30 @@ export default function AppointmentForm({
   const touch = (field: keyof typeof touched) =>
     setTouched((prev) => ({ ...prev, [field]: true }));
 
-  useUnsavedChanges(
-    isFormDirty(
-      mode,
-      { doctorCode, date, selectedSlot },
-      {
-        doctorCode: initialDoctorCode ?? "",
-        date: initialDate ?? "",
-        selectedSlot: initialTimeSlot ?? "",
-      },
-    ),
+  const dirty = isFormDirty(
+    mode,
+    { doctorCode, date, selectedSlot },
+    {
+      doctorCode: initialDoctorCode ?? "",
+      date: initialDate ?? "",
+      selectedSlot: initialTimeSlot ?? "",
+    },
   );
+  useUnsavedChanges(dirty);
 
   const selectedDoctor = useMemo(
     () => doctors.find((d) => d.employeeCode === doctorCode),
     [doctors, doctorCode],
+  );
+
+  // Weekdays the doctor is available + their booking cutoff (drive the calendar)
+  const doctorDays = useMemo(
+    () => Array.from(new Set((selectedDoctor?.availabilitySlots ?? []).map((w) => w.day))),
+    [selectedDoctor],
+  );
+  const doctorCutoff = useMemo(
+    () => (selectedDoctor?.bookingCutoffDate ? new Date(selectedDoctor.bookingCutoffDate) : null),
+    [selectedDoctor],
   );
 
   const candidateSlots = useMemo(() => {
@@ -368,12 +402,14 @@ export default function AppointmentForm({
       (w) => w.day === weekday,
     );
     const slots = windows.flatMap((w) => buildSlots(w.startTime, w.endTime));
+    // Hide already-passed slots for today; the backend rejects them with 409
     const now = new Date();
     if (date !== formatDate(now)) return slots;
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     return slots.filter((slot) => toMinutes(slot.slice(0, 5)) > nowMinutes);
   }, [selectedDoctor, date]);
 
+  // Hide slots booked by others but keep the slot being edited
   const availableSlots = useMemo(
     () =>
       candidateSlots.filter(
@@ -389,10 +425,12 @@ export default function AppointmentForm({
   };
 
   const onToggleDoctor = () => {
+    // Mark touched only when closing the dropdown so the error never flashes on open
     if (doctorOpen) touch("doctor");
     setDoctorOpen(!doctorOpen);
   };
 
+  // Collapsing the dropdown without a selection surfaces the required error
   const blurDoctor = () => {
     if (doctorOpen) {
       setDoctorOpen(false);
@@ -402,20 +440,10 @@ export default function AppointmentForm({
 
   const openDatePicker = () => {
     blurDoctor();
-    if (date && isRealDate(date)) {
-      const [y, m, d] = date.split("-").map(Number);
-      setDatePickerDate(new Date(y, m - 1, d));
-    }
     setShowDatePicker(true);
   };
 
-  const errors = {
-    doctor: doctorCode ? undefined : "Please select a doctor",
-    date: getDateError(date),
-    timeSlot: availableSlots.length > 0 && !selectedSlot
-      ? "Please select a time slot"
-      : undefined,
-  };
+  const errors = getFormErrors(doctorCode, date, availableSlots, selectedSlot);
 
   const handleSubmit = async () => {
     blurDoctor();
@@ -505,7 +533,7 @@ export default function AppointmentForm({
         )}
 
         {/* Date — tapping opens the native date picker */}
-        <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Date</Text>
+        <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Date<RequiredMark /></Text>
         <TouchableOpacity
           style={[
             styles.dropdownTrigger,
@@ -523,7 +551,7 @@ export default function AppointmentForm({
           <Text style={styles.errorText}>{errors.date}</Text>
         ) : null}
 
-        <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Time slot</Text>
+        <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Time slot<RequiredMark /></Text>
         <SlotsSection
           selectedDoctor={selectedDoctor}
           dateValid={DATE_REGEX.test(date)}
@@ -538,23 +566,30 @@ export default function AppointmentForm({
         />
 
         <TouchableOpacity
-          style={[styles.submitButton, submitting && styles.submitDisabled]}
+          style={[
+            styles.submitButton,
+            (submitting || (mode === "edit" && !dirty)) && styles.submitDisabled,
+          ]}
           onPress={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || (mode === "edit" && !dirty)}
           activeOpacity={0.85}
         >
           <Text style={styles.submitText}>{submitLabel(submitting, mode)}</Text>
         </TouchableOpacity>
 
-        <DatePickerSheet
+        <AvailabilityCalendar
           visible={showDatePicker}
-          value={datePickerDate}
+          value={date}
           title="Appointment date"
           minimumDate={MIN_DATE}
           maximumDate={MAX_DATE}
-          onChange={(selected) => {
-            setDatePickerDate(selected);
-            setDate(formatDate(selected));
+          availableDays={doctorDays}
+          cutoffDate={doctorCutoff}
+          onSelect={(iso) => {
+            setDate(iso);
+            setSelectedSlot("");
+            setShowDatePicker(false);
+            touch("date");
           }}
           onClose={() => {
             setShowDatePicker(false);

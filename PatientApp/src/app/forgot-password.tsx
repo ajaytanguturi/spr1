@@ -55,6 +55,7 @@ export default function ForgotPassword() {
         <View style={styles.form}>
           <Textbox
             label="Email address"
+            required
             placeholder="you@email.com"
             value={email}
             onChangeText={setEmail}

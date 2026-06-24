@@ -10,10 +10,11 @@ type DatePickerSheetProps = Readonly<{
   minimumDate?: Date;
   maximumDate?: Date;
   onChange: (selected: Date) => void;
-
+  // Fired when the picker closes (Android select/dismiss, iOS Done)
   onClose: () => void;
 }>;
 
+// Platform-split date picker: Android native dialog, iOS bottom-sheet modal
 export default function DatePickerSheet({
   visible,
   value,

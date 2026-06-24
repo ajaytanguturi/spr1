@@ -3,6 +3,7 @@ import { useNavGuard } from "@/store/navGuard";
 
 type Router = ReturnType<typeof useRouter>;
 
+// useRouter replacement whose push/replace/back run the unsaved-changes guard first
 export function useGuardedRouter() {
   const router = useRouter();
   const confirmLeave = useNavGuard((s) => s.confirmLeave);

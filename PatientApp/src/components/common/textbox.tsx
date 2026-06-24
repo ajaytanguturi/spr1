@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { Text, TextInput, TextInputProps, TouchableOpacity, View } from "react-native";
 import { styles } from "./textbox.styles";
+import { RequiredMark } from "./RequiredMark";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 interface TextboxProps extends TextInputProps {
   label: string;
   icon?: any;
   error?: string;
+  // Eye button toggling secure entry; for password fields, not confirm-password
   secureToggle?: boolean;
+  required?: boolean;
 }
 
 export function Textbox({
@@ -17,6 +20,7 @@ export function Textbox({
   onPress,
   secureToggle,
   secureTextEntry,
+  required,
   ...props
 }: Readonly<TextboxProps>) {
   const [hidden, setHidden] = useState(true);
@@ -24,7 +28,7 @@ export function Textbox({
 
   const inner = (
     <>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>{label}{required ? <RequiredMark /> : null}</Text>
       <View style={[styles.inputWrapper, error ? styles.inputWrapperError : undefined]}>
         {icon ? <Ionicons name={icon} size={20} style={styles.icon} /> : null}
         <TextInput

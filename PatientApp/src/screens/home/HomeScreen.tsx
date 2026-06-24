@@ -1,13 +1,22 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useFocusEffect, useRouter } from "expo-router";
-import { ReactNode, useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
+import { ReactNode } from "react";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BottomTabInset } from "@/constants/theme";
 import AppointmentCard from "@/components/appointment/AppointmentCard";
 import { getInitials } from "@/utils/format";
 import { getMyAppointments } from "@/services/appointmentService";
 import { getMyProfile } from "@/services/patientService";
+import { useRefetchOnFocusIfStale } from "@/hooks/useRefetchOnFocusIfStale";
 import type { Appointment } from "@/services/types";
 
 const TEAL = "#2e9466";
@@ -26,17 +35,16 @@ function getGreeting() {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [userName, setUserName] = useState("Patient");
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    try {
+  // Profile + upcoming BOOKED appointments, cached and deduped via React Query.
+  // Errors stay silent here; the dedicated screens surface them in detail.
+  const { data, isLoading, refetch, dataUpdatedAt, fetchStatus } = useQuery({
+    queryKey: ["homeSummary"],
+    queryFn: async () => {
       const [profile, appts] = await Promise.all([
         getMyProfile(),
-        getMyAppointments("BOOKED"),
+        getMyAppointments("BOOKED", 1, 100),
       ]);
-      setUserName(profile.patient?.name || "Patient");
       const now = Date.now();
       const upcoming = appts.appointments
         .filter((a) => new Date(a.appointmentDate).getTime() >= now - 86400000)
@@ -45,18 +53,17 @@ export default function HomeScreen() {
             new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime() ||
             a.timeSlot.localeCompare(b.timeSlot),
         );
-      setAppointments(upcoming);
-    } catch {
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return { userName: profile.patient?.name || "Patient", appointments: upcoming };
+    },
+  });
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
+  const userName = data?.userName ?? "Patient";
+  const appointments: Appointment[] = data?.appointments ?? [];
+  const loading = isLoading;
+
+  // Refresh on focus so newly booked/cancelled appointments appear — but only
+  // when the cached data has gone stale, so quick tab-switches reuse the cache
+  useRefetchOnFocusIfStale({ refetch, dataUpdatedAt, fetchStatus });
 
   let appointmentsContent: ReactNode;
   if (loading) {

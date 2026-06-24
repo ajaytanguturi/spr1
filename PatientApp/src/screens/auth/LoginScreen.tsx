@@ -55,8 +55,9 @@ const LoginScreen = () => {
     setSubmitting(true);
     try {
       const data = await loginPatient(email.trim(), password);
-      await login(data.token);
-      router.replace("/");
+      await login(data.accessToken, data.refreshToken);
+      // Admin-provisioned accounts must set a real password before using the app
+      router.replace(data.patient.mustChangePassword ? "/change-password" : "/");
     } catch (err) {
       showError(err, ALERT_TITLES.LOGIN_FAILED);
     } finally {
@@ -86,6 +87,7 @@ const LoginScreen = () => {
         <View style={styles.inputRow}>
           <Textbox
             label="Email address"
+            required
             placeholder="you@email.com"
             value={email}
             onChangeText={setEmail}
@@ -100,6 +102,7 @@ const LoginScreen = () => {
         <View style={styles.inputRow}>
           <Textbox
             label="Password"
+            required
             placeholder="••••••••"
             value={password}
             icon="lock-closed-outline"

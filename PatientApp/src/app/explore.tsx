@@ -1,10 +1,19 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useFocusEffect, useRouter } from "expo-router";
-import { ReactNode, useCallback, useMemo, useState } from "react";
+import {
+  InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useRouter } from "expo-router";
+import { useRefetchOnFocusIfStale } from "@/hooks/useRefetchOnFocusIfStale";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Modal,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,113 +29,174 @@ import AppointmentForm from "@/components/appointment/AppointmentForm";
 import AppointmentCard from "@/components/appointment/AppointmentCard";
 import { useNavGuard } from "@/store/navGuard";
 import {
+  AppointmentsData,
   cancelAppointment,
   getMyAppointments,
 } from "@/services/appointmentService";
 import type { Appointment, AppointmentStatus } from "@/services/types";
 
 const TEAL = "#2e9466";
+const PAGE_SIZE = 10;
+
 const STATUS_COLORS: Record<AppointmentStatus, string> = {
   BOOKED: "#2e9466",
   COMPLETED: "#6b7280",
   CANCELED: "#ef4444",
+  UNATTENDED: "#d97706",
 };
-
-const STATUS_PRIORITY: Record<AppointmentStatus, number> = {
-  BOOKED: 0,
-  COMPLETED: 1,
-  CANCELED: 2,
-};
-
-function sortAppointments(list: Appointment[]) {
-  return [...list].sort(
-    (a, b) =>
-      STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status] ||
-      new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime() ||
-      a.timeSlot.localeCompare(b.timeSlot),
-  );
-}
 
 type TopTab = "book" | "list";
 
 type Filter = "All" | AppointmentStatus;
-const FILTERS: Filter[] = ["All", "BOOKED", "COMPLETED", "CANCELED"];
+const FILTERS: Filter[] = [
+  "All",
+  "BOOKED",
+  "COMPLETED",
+  "CANCELED",
+  "UNATTENDED",
+];
+
+// True once the appointment's slot start time has passed. Past this point cancel
+// and reschedule are no longer allowed (mirrors the Angular web + backend guard).
+function startTimePassed(appt: Appointment): boolean {
+  const start = (appt.timeSlot || "").split("-")[0];
+  const [hh, mm] = (start || "").split(":").map(Number);
+  const startAt = new Date(appt.appointmentDate);
+  if (!Number.isNaN(hh) && !Number.isNaN(mm)) {
+    startAt.setHours(hh, mm, 0, 0);
+  }
+  return startAt.getTime() <= Date.now();
+}
+
+// Optimistically flip a single appointment to CANCELED across all cached pages.
+// Extracted so the mutation's onMutate stays shallow (avoids deep callback nesting).
+function markAppointmentCanceled(
+  data: InfiniteData<AppointmentsData> | undefined,
+  id: string,
+): InfiniteData<AppointmentsData> | undefined {
+  if (!data) return data;
+  return {
+    ...data,
+    pages: data.pages.map((pg) => ({
+      ...pg,
+      appointments: pg.appointments.map((a) =>
+        a.appointmentId === id
+          ? { ...a, status: "CANCELED" as AppointmentStatus }
+          : a,
+      ),
+    })),
+  };
+}
 
 export default function AppointmentsScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<TopTab>("list");
-  const [all, setAll] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
 
+  // Cancellation modal state
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
   const [reason, setReason] = useState("");
-  const [cancelling, setCancelling] = useState(false);
 
   const confirmLeave = useNavGuard((s) => s.confirmLeave);
 
-  const load = useCallback(async () => {
+  // Per-filter infinite query; React Query caches each filter independently
+  const status = activeFilter === "All" ? undefined : activeFilter;
+  const query = useInfiniteQuery({
+    queryKey: ["myAppointments", activeFilter],
+    queryFn: ({ pageParam }) => getMyAppointments(status, pageParam, PAGE_SIZE),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+  });
+
+  const items = query.data?.pages.flatMap((p) => p.appointments) ?? [];
+  const loading = query.isLoading;
+  const loadingMore = query.isFetchingNextPage;
+
+  useEffect(() => {
+    if (query.error) showError(query.error);
+  }, [query.error]);
+
+  // Silent background refresh of the active filter on focus — only when stale,
+  // so switching away and back within the window reuses the cached list
+  useRefetchOnFocusIfStale(query);
+
+  // Switching filters just swaps the query key; cached data renders instantly
+  const changeFilter = (f: Filter) => {
+    if (f !== activeFilter) setActiveFilter(f);
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
     try {
-      const data = await getMyAppointments();
-      setAll(sortAppointments(data.appointments));
-    } catch (err) {
-      showError(err);
+      await query.refetch();
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  }, [query.refetch]);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
+  const onEndReached = useCallback(() => {
+    if (query.hasNextPage && !query.isFetchingNextPage) {
+      query.fetchNextPage();
+    }
+  }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
 
+  // Switching away from a dirty booking form prompts via the shared nav guard
   const switchTab = async (next: TopTab) => {
     if (next === tab) return;
     if (!(await confirmLeave())) return;
     setTab(next);
   };
 
+  // After booking, jump to the list and refresh all cached appointment filters
   const handleBooked = useCallback(() => {
     setTab("list");
-    load();
-  }, [load]);
-
-  const counts = useMemo(
-    () => ({
-      All: all.length,
-      BOOKED: all.filter((a) => a.status === "BOOKED").length,
-      COMPLETED: all.filter((a) => a.status === "COMPLETED").length,
-      CANCELED: all.filter((a) => a.status === "CANCELED").length,
-    }),
-    [all],
-  );
-
-  const filtered =
-    activeFilter === "All" ? all : all.filter((a) => a.status === activeFilter);
+    setActiveFilter("All");
+    queryClient.invalidateQueries({ queryKey: ["myAppointments"] });
+  }, [queryClient]);
 
   const openCancel = (appt: Appointment) => {
     setCancelTarget(appt);
     setReason("");
   };
 
-  const confirmCancel = async () => {
+  // Optimistic cancel: flip the row to CANCELED across cached filter pages,
+  // roll back on error, and reconcile with the server on settle.
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, cancellationReason }: { id: string; cancellationReason: string }) =>
+      cancelAppointment(id, cancellationReason),
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: ["myAppointments"] });
+      const prev = queryClient.getQueriesData<InfiniteData<AppointmentsData>>({
+        queryKey: ["myAppointments"],
+      });
+      queryClient.setQueriesData<InfiniteData<AppointmentsData>>(
+        { queryKey: ["myAppointments"] },
+        (old) => markAppointmentCanceled(old, id),
+      );
+      return { prev };
+    },
+    onError: (err, _vars, ctx) => {
+      ctx?.prev?.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      showError(err, ALERT_TITLES.CANCEL_FAILED);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["myAppointments"] }),
+  });
+  const cancelling = cancelMutation.isPending;
+
+  const confirmCancel = () => {
     if (!cancelTarget) return;
     if (!reason.trim()) {
       Alert.alert(ALERT_TITLES.REASON_REQUIRED, MESSAGES.CANCEL_REASON_REQUIRED);
       return;
     }
-    setCancelling(true);
-    try {
-      await cancelAppointment(cancelTarget.appointmentId, reason.trim());
-      setCancelTarget(null);
-      await load();
-    } catch (err) {
-      showError(err, ALERT_TITLES.CANCEL_FAILED);
-    } finally {
-      setCancelling(false);
-    }
+    cancelMutation.mutate({
+      id: cancelTarget.appointmentId,
+      cancellationReason: reason.trim(),
+    });
+    setCancelTarget(null);
   };
 
   const reschedule = (appt: Appointment) => {
@@ -141,24 +211,21 @@ export default function AppointmentsScreen() {
     });
   };
 
-  let listContent: ReactNode;
-  if (loading) {
-    listContent = <ActivityIndicator color={TEAL} style={{ marginTop: 40 }} />;
-  } else if (filtered.length === 0) {
-    listContent = (
-      <View style={styles.emptyState}>
-        <Ionicons name="calendar-outline" size={48} color="#d1d5db" />
-        <Text style={styles.emptyText}>No appointments found</Text>
-      </View>
-    );
-  } else {
-    listContent = filtered.map((appt) => (
+  // Tapping a completed appointment opens its medical record (or in-progress text)
+  const openRecord = (appt: Appointment) => {
+    router.push({
+      pathname: "/appointment-record",
+      params: { appointmentId: appt.appointmentId },
+    });
+  };
+
+  const renderItem = ({ item: appt }: { item: Appointment }) => {
+    const card = (
       <AppointmentCard
-        key={appt.appointmentId}
         appointment={appt}
         statusColor={STATUS_COLORS[appt.status]}
       >
-        {appt.status === "BOOKED" && (
+        {appt.status === "BOOKED" && !startTimePassed(appt) && (
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={styles.cancelButton}
@@ -183,8 +250,80 @@ export default function AppointmentsScreen() {
           </Text>
         ) : null}
       </AppointmentCard>
-    ));
-  }
+    );
+
+    if (appt.status === "COMPLETED") {
+      return (
+        <TouchableOpacity activeOpacity={0.85} onPress={() => openRecord(appt)}>
+          {card}
+        </TouchableOpacity>
+      );
+    }
+    return card;
+  };
+
+  const filtersHeader: ReactNode = (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.filtersRow}
+    >
+      {FILTERS.map((f) => (
+        <TouchableOpacity
+          key={f}
+          style={[styles.filterPill, activeFilter === f && styles.filterPillActive]}
+          onPress={() => changeFilter(f)}
+          activeOpacity={0.75}
+        >
+          <Text
+            style={[
+              styles.filterPillText,
+              activeFilter === f && styles.filterPillTextActive,
+            ]}
+          >
+            {f}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
+
+  // List-tab body: spinner on first load, otherwise the paginated list
+  const listView = loading ? (
+    <ActivityIndicator color={TEAL} style={{ marginTop: 40 }} />
+  ) : (
+    <FlatList
+      data={items}
+      keyExtractor={(item) => item.appointmentId}
+      renderItem={renderItem}
+      ListHeaderComponent={filtersHeader}
+      contentContainerStyle={[
+        styles.container,
+        { paddingBottom: BottomTabInset + 24 },
+      ]}
+      showsVerticalScrollIndicator={false}
+      initialNumToRender={10}
+      maxToRenderPerBatch={10}
+      windowSize={7}
+      removeClippedSubviews
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={TEAL} />
+      }
+      onEndReached={onEndReached}
+      onEndReachedThreshold={0.4}
+      ListEmptyComponent={
+        <View style={styles.emptyState}>
+          <Ionicons name="calendar-outline" size={48} color="#d1d5db" />
+          <Text style={styles.emptyText}>No appointments found</Text>
+        </View>
+      }
+      ListFooterComponent={
+        loadingMore ? (
+          <ActivityIndicator color={TEAL} style={{ marginVertical: 16 }} />
+        ) : null
+      }
+    />
+  );
 
   return (
     <View style={styles.root}>
@@ -217,38 +356,7 @@ export default function AppointmentsScreen() {
       {tab === "book" ? (
         <AppointmentForm mode="book" embedded onDone={handleBooked} />
       ) : (
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={[styles.container, { paddingBottom: BottomTabInset + 24 }]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Filter pills */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filtersRow}
-          >
-            {FILTERS.map((f) => (
-              <TouchableOpacity
-                key={f}
-                style={[styles.filterPill, activeFilter === f && styles.filterPillActive]}
-                onPress={() => setActiveFilter(f)}
-                activeOpacity={0.75}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    activeFilter === f && styles.filterPillTextActive,
-                  ]}
-                >
-                  {f} ({counts[f]})
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {listContent}
-        </ScrollView>
+        listView
       )}
 
       {/* Cancellation reason modal */}
@@ -300,7 +408,6 @@ export default function AppointmentsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#fff" },
   header: { paddingHorizontal: 20, backgroundColor: "#fff" },
-  scrollView: { flex: 1, backgroundColor: "#fff" },
   container: { paddingHorizontal: 20, backgroundColor: "#fff" },
   screenTitle: {
     fontSize: 26,

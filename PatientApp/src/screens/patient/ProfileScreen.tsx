@@ -14,6 +14,7 @@ import { errorMessage, showError, showSuccess } from "@/utils/alerts";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "@/store/AuthStore";
+import { RequiredMark } from "@/components/common/RequiredMark";
 import { BottomTabInset, KeyboardScrollPadding } from "@/constants/theme";
 import { useGuardedRouter } from "@/hooks/useGuardedRouter";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
@@ -28,6 +29,7 @@ const ProfileScreen = () => {
   const router = useRouter();
   const guarded = useGuardedRouter();
 
+  // Logout and redirect in the tap handler so it fires reliably
   const handleLogout = async () => {
     await logout();
     router.replace("/login");
@@ -36,11 +38,13 @@ const ProfileScreen = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Read-only identity fields
   const [name, setName] = useState("");
   const [gender, setGender] = useState("");
   const [dob, setDob] = useState("");
   const [uhid, setUhid] = useState("");
 
+  // Editable contact fields
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [houseName, setHouseName] = useState("");
@@ -51,6 +55,7 @@ const ProfileScreen = () => {
   const [relationship, setRelationship] = useState("");
   const [contactNumber, setContactNumber] = useState("");
 
+  // Snapshot of the editable fields as last loaded/saved, for dirty detection.
   const initialRef = useRef({
     email: "",
     phone: "",
@@ -130,6 +135,7 @@ const ProfileScreen = () => {
     }
   };
 
+  // Dirty when any editable field differs from the last loaded/saved snapshot.
   const init = initialRef.current;
   const isDirty =
     email !== init.email ||
@@ -232,10 +238,10 @@ const ProfileScreen = () => {
 
         {/* Save */}
         <TouchableOpacity
-          style={[styles.saveButton, saving && { opacity: 0.6 }]}
+          style={[styles.saveButton, (saving || !isDirty) && { opacity: 0.6 }]}
           activeOpacity={0.85}
           onPress={handleSave}
-          disabled={saving}
+          disabled={saving || !isDirty}
         >
           <Text style={styles.saveButtonText}>{saving ? "Saving…" : "Save changes"}</Text>
         </TouchableOpacity>
@@ -260,22 +266,25 @@ const ProfileScreen = () => {
   );
 };
 
+// Small labelled input used throughout the editable form
 function Field({
   label,
   value,
   onChange,
   keyboardType,
   autoCapitalize,
+  required = true,
 }: Readonly<{
   label: string;
   value: string;
   onChange: (t: string) => void;
   keyboardType?: "default" | "email-address" | "phone-pad";
   autoCapitalize?: "none" | "sentences";
+  required?: boolean;
 }>) {
   return (
     <View style={styles.fieldGroup}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={styles.fieldLabel}>{label}{required ? <RequiredMark /> : null}</Text>
       <TextInput
         style={styles.fieldInput}
         value={value}

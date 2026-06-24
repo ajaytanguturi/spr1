@@ -2,6 +2,7 @@ import { StyleSheet } from "react-native";
 
 const TEAL = "#2e9466";
 
+// Shared layout for the forgot/reset/change password screens.
 export const pwStyles = StyleSheet.create({
   scrollView: { flex: 1, backgroundColor: "#fff" },
   container: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 48 },
